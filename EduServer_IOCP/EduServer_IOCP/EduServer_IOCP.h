@@ -3,6 +3,10 @@
 #define LISTEN_PORT	9001
 
 
-extern int NUM_OF_IO_THREADS;
+enum THREAD_TYPE
+{
+	THREAD_MAIN_ACCEPT,
+	THREAD_IO_WORKER
+};
 
-unsigned int WINAPI IoThread(LPVOID lpParam);
+extern __declspec(thread) int LThreadType;

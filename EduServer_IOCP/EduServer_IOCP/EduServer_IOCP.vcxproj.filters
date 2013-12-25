@@ -9,9 +9,6 @@
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
-    <Filter Include="Shared">
-      <UniqueIdentifier>{d30850e1-c5c1-44d7-a088-5231f8d251a9}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />
@@ -26,9 +23,6 @@
     <ClInclude Include="Exception.h">
       <Filter>Utils</Filter>
     </ClInclude>
-    <ClInclude Include="..\Share\PacketType.h">
-      <Filter>Shared</Filter>
-    </ClInclude>
     <ClInclude Include="EduServer_IOCP.h">
       <Filter>Main</Filter>
     </ClInclude>
@@ -36,6 +30,9 @@
       <Filter>Main</Filter>
     </ClInclude>
     <ClInclude Include="SessionManager.h">
+      <Filter>Main</Filter>
+    </ClInclude>
+    <ClInclude Include="IocpManager.h">
       <Filter>Main</Filter>
     </ClInclude>
   </ItemGroup>
@@ -53,6 +50,9 @@
       <Filter>Main</Filter>
     </ClCompile>
     <ClCompile Include="SessionManager.cpp">
+      <Filter>Main</Filter>
+    </ClCompile>
+    <ClCompile Include="IocpManager.cpp">
       <Filter>Main</Filter>
     </ClCompile>
   </ItemGroup>

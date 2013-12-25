@@ -44,10 +44,6 @@ public:
 	bool	PostRecv();
 	void	Disconnect();
 	
-	//void	OnRead(size_t len) ;
-	//void	OnWriteComplete(size_t len) ;
-
-	
 	
 
 

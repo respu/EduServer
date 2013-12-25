@@ -81,10 +81,10 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\Share\PacketType.h" />
     <ClInclude Include="ClientSession.h" />
     <ClInclude Include="EduServer_IOCP.h" />
     <ClInclude Include="Exception.h" />
+    <ClInclude Include="IocpManager.h" />
     <ClInclude Include="SessionManager.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
@@ -93,6 +93,7 @@
     <ClCompile Include="ClientSession.cpp" />
     <ClCompile Include="EduServer_IOCP.cpp" />
     <ClCompile Include="Exception.cpp" />
+    <ClCompile Include="IocpManager.cpp" />
     <ClCompile Include="SessionManager.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
