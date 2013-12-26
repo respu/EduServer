@@ -35,6 +35,12 @@
     <ClInclude Include="IocpManager.h">
       <Filter>Main</Filter>
     </ClInclude>
+    <ClInclude Include="FastSpinlock.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="ObjectPool.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -54,6 +60,9 @@
     </ClCompile>
     <ClCompile Include="IocpManager.cpp">
       <Filter>Main</Filter>
+    </ClCompile>
+    <ClCompile Include="FastSpinlock.cpp">
+      <Filter>Utils</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

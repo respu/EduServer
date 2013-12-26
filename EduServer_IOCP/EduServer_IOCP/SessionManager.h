@@ -1,6 +1,7 @@
 #pragma once
 #include <map>
 #include <WinSock2.h>
+#include "FastSpinlock.h"
 
 class ClientSession;
 
@@ -15,6 +16,8 @@ public:
 private:
 	typedef std::map<SOCKET, ClientSession*> ClientList;
 	ClientList	mClientList;
+
+	FastSpinlock mLock;
 
 };
 
