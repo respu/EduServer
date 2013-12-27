@@ -1,5 +1,8 @@
 #pragma once
 
+class ClientSession;
+struct OverlappedIOContext;
+
 class IocpManager
 {
 public:
@@ -16,7 +19,12 @@ public:
 	int	GetIoThreadCount()		{ return mIoThreadCount;  }
 
 
+private:
+
 	static unsigned int WINAPI IoWorkerThread(LPVOID lpParam);
+
+	static bool ReceiveCompletion(const ClientSession* client, OverlappedIOContext* context, DWORD dwTransferred);
+	static bool SendCompletion(const ClientSession* client, OverlappedIOContext* context, DWORD dwTransferred);
 
 private:
 

@@ -19,6 +19,7 @@ enum DisconnectReason
 	DR_RECV_ZERO,
 	DR_ACTIVE,
 	DR_ONCONNECT_ERROR,
+	DR_COMPLETION_ERROR,
 };
 
 struct OverlappedIOContext
@@ -26,12 +27,14 @@ struct OverlappedIOContext
 	OverlappedIOContext(ClientSession* owner, IOType ioType) : mSessionObject(owner), mIoType(ioType)
 	{
 		memset(&mOverlapped, 0, sizeof(OVERLAPPED));
+		memset(&mWsaBuf, 0, sizeof(WSABUF));
 		memset(mBuffer, 0, BUFSIZE);
 	}
 
 	OVERLAPPED		mOverlapped ;
 	ClientSession*	mSessionObject ;
 	IOType			mIoType ;
+	WSABUF			mWsaBuf;
 	char			mBuffer[BUFSIZE];
 } ;
 

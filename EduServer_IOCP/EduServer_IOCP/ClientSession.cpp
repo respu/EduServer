@@ -74,13 +74,11 @@ bool ClientSession::PostRecv()
 
 	DWORD recvbytes = 0;
 	DWORD flags = 0;
-	WSABUF buf;
-	buf.len = BUFSIZE;
-	buf.buf = recvContext->mBuffer;
-
+	recvContext->mWsaBuf.len = BUFSIZE;
+	recvContext->mWsaBuf.buf = recvContext->mBuffer;
 
 	/// 비동기 입출력 시작
-	if (SOCKET_ERROR == WSARecv(mSocket, &buf, 1, &recvbytes, &flags, (LPWSAOVERLAPPED)recvContext, NULL))
+	if (SOCKET_ERROR == WSARecv(mSocket, &recvContext->mWsaBuf, 1, &recvbytes, &flags, (LPWSAOVERLAPPED)recvContext, NULL))
 	{
 		if (WSAGetLastError() != WSA_IO_PENDING)
 			return false;

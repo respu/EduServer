@@ -136,10 +136,54 @@ unsigned int WINAPI IocpManager::IoWorkerThread(LPVOID lpParam)
 			continue;
 		}
 
-		//TODO: operation 종류에 따른 처리
+		/// what? 
+		if (nullptr == context)
+		{
+			printf_s("Completion Error : %d\n", GetLastError());
+			continue;
+		}
 
+		bool completionOk = true;
+		switch (context->mIoType)
+		{
+		case IO_SEND:
+			completionOk = SendCompletion(asCompletionKey, context, dwTransferred);
+			break;
+
+		case IO_RECV:
+			completionOk = ReceiveCompletion(asCompletionKey, context, dwTransferred);
+			break;
+
+		default:
+			printf_s("Unknown I/O Type: %d\n", context->mIoType);
+			break;
+		}
+
+		if ( !completionOk )
+		{
+			/// connection closing
+			asCompletionKey->Disconnect(DR_COMPLETION_ERROR);
+			GSessionManager->DeleteClientSession(asCompletionKey);
+		}
 
 	}
 
 	return 0;
+}
+
+bool IocpManager::ReceiveCompletion(const ClientSession* client, OverlappedIOContext* context, DWORD dwTransferred)
+{
+	//TODO
+	// Echo send posting...
+	// PostRecv
+	return true;
+}
+
+bool IocpManager::SendCompletion(const ClientSession* client, OverlappedIOContext* context, DWORD dwTransferred)
+{
+	
+	if (context->mWsaBuf.len != dwTransferred)
+		return false;
+
+	return true;
 }
