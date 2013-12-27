@@ -96,7 +96,8 @@ bool IocpManager::StartAcceptLoop()
 		/// 努扼 立加 贸府
 		if (false == client->OnConnect(&clientaddr))
 		{
-			client->Disconnect();
+			client->Disconnect(DR_ONCONNECT_ERROR);
+			GSessionManager->DeleteClientSession(client);
 		}
 	}
 
@@ -129,7 +130,9 @@ unsigned int WINAPI IocpManager::IoWorkerThread(LPVOID lpParam)
 
 		if (ret == 0 || dwTransferred == 0)
 		{
-			//TODO: 立加 辆丰 贸府 秦林扁
+			/// connection closing
+			asCompletionKey->Disconnect(DR_RECV_ZERO);
+			GSessionManager->DeleteClientSession(asCompletionKey);
 			continue;
 		}
 

@@ -1,9 +1,10 @@
 #pragma once
+#include "FastSpinlock.h"
 
 #define BUFSIZE	4096
 
 class ClientSession ;
-
+class SessionManager;
 enum IOType
 {
 	IO_NONE,
@@ -11,6 +12,14 @@ enum IOType
 	IO_RECV,
 	IO_ACCEPT
 } ;
+
+enum DisconnectReason
+{
+	DR_NONE,
+	DR_RECV_ZERO,
+	DR_ACTIVE,
+	DR_ONCONNECT_ERROR,
+};
 
 struct OverlappedIOContext
 {
@@ -42,10 +51,8 @@ public:
 	bool	IsConnected() const { return mConnected; }
 
 	bool	PostRecv();
-	void	Disconnect();
+	void	Disconnect(DisconnectReason dr);
 	
-	
-
 
 private:
 	bool			mConnected ;
@@ -53,8 +60,9 @@ private:
 
 	SOCKADDR_IN		mClientAddr ;
 		
-	
+	FastSpinlock	mLock;
 
+	friend class SessionManager;
 } ;
 
 

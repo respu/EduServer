@@ -2,18 +2,19 @@
 #include "EduServer_IOCP.h"
 #include "ClientSession.h"
 #include "IocpManager.h"
+#include "SessionManager.h"
 
 bool ClientSession::OnConnect(SOCKADDR_IN* addr)
 {
+	FastSpinlockGuard criticalSection(mLock);
+
 	assert(LThreadType == THREAD_MAIN_ACCEPT);
 
-	memcpy(&mClientAddr, addr, sizeof(SOCKADDR_IN)) ;
-
-	/// 소켓을 넌블러킹으로 바꾸고
+	/// make socket non-blocking
 	u_long arg = 1 ;
 	ioctlsocket(mSocket, FIONBIO, &arg) ;
 
-	/// nagle 알고리즘 끄기
+	/// turn off nagle
 	int opt = 1 ;
 	setsockopt(mSocket, IPPROTO_TCP, TCP_NODELAY, (const char*)&opt, sizeof(int)) ;
 
@@ -31,48 +32,59 @@ bool ClientSession::OnConnect(SOCKADDR_IN* addr)
 		return false;
 	}
 
-	printf_s("[DEBUG] Client Connected: IP=%s, PORT=%d\n", inet_ntoa(mClientAddr.sin_addr), ntohs(mClientAddr.sin_port)) ;
-	
+	memcpy(&mClientAddr, addr, sizeof(SOCKADDR_IN));
 	mConnected = true ;
+
+	printf_s("[DEBUG] Client Connected: IP=%s, PORT=%d\n", inet_ntoa(mClientAddr.sin_addr), ntohs(mClientAddr.sin_port));
 
 	return PostRecv() ;
 }
 
-bool ClientSession::PostRecv()
+void ClientSession::Disconnect(DisconnectReason dr)
 {
-	if ( !IsConnected() )
-		return false ;
+	FastSpinlockGuard criticalSection(mLock);
 
-	//TODO: pooling...
-	OverlappedIOContext* recvContext = new OverlappedIOContext(this, IO_RECV) ;
-
-	DWORD recvbytes = 0 ;
-	DWORD flags = 0 ;
-	WSABUF buf ;
-	buf.len = BUFSIZE;
-	buf.buf = recvContext->mBuffer ;
-
-
-	/// 비동기 입출력 시작
-	if ( SOCKET_ERROR == WSARecv(mSocket, &buf, 1, &recvbytes, &flags, (LPWSAOVERLAPPED)recvContext, NULL) )
-	{
-		if ( WSAGetLastError() != WSA_IO_PENDING )
-			return false ;
-	}
-
-	return true ;
-}
-
-void ClientSession::Disconnect()
-{
 	if ( !IsConnected() )
 		return ;
+	
+	LINGER lingerOption ;
+	lingerOption.l_onoff = 1;
+	lingerOption.l_linger = 0;
 
-	printf_s("[DEBUG] Client Disconnected: IP=%s, PORT=%d\n", inet_ntoa(mClientAddr.sin_addr), ntohs(mClientAddr.sin_port)) ;
+	/// no TCP TIME_WAIT
+	if (SOCKET_ERROR == setsockopt(mSocket, SOL_SOCKET, SO_LINGER, (char*)&lingerOption, sizeof(LINGER)) )
+	{
+		printf_s("[DEBUG] setsockopt linger option error: %d\n", GetLastError());
+	}
 
-	::shutdown(mSocket, SD_BOTH) ;
-	::closesocket(mSocket) ;
+	printf_s("[DEBUG] Client Disconnected: Reason=%d IP=%s, PORT=%d\n", dr, inet_ntoa(mClientAddr.sin_addr), ntohs(mClientAddr.sin_port));
+
+	closesocket(mSocket) ;
 
 	mConnected = false ;
 }
 
+bool ClientSession::PostRecv()
+{
+	if (!IsConnected())
+		return false;
+
+	//TODO: pooling...
+	OverlappedIOContext* recvContext = new OverlappedIOContext(this, IO_RECV);
+
+	DWORD recvbytes = 0;
+	DWORD flags = 0;
+	WSABUF buf;
+	buf.len = BUFSIZE;
+	buf.buf = recvContext->mBuffer;
+
+
+	/// 비동기 입출력 시작
+	if (SOCKET_ERROR == WSARecv(mSocket, &buf, 1, &recvbytes, &flags, (LPWSAOVERLAPPED)recvContext, NULL))
+	{
+		if (WSAGetLastError() != WSA_IO_PENDING)
+			return false;
+	}
+
+	return true;
+}

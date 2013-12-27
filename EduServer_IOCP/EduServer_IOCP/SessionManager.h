@@ -12,6 +12,8 @@ public:
 
 	ClientSession* CreateClientSession(SOCKET sock);
 
+	void DeleteClientSession(ClientSession* client);
+
 
 private:
 	typedef std::map<SOCKET, ClientSession*> ClientList;
