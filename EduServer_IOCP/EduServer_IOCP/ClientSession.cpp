@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "Exception.h"
 #include "EduServer_IOCP.h"
 #include "ClientSession.h"
 #include "IocpManager.h"
@@ -8,7 +9,7 @@ bool ClientSession::OnConnect(SOCKADDR_IN* addr)
 {
 	FastSpinlockGuard criticalSection(mLock);
 
-	assert(LThreadType == THREAD_MAIN_ACCEPT);
+	CRASH_ASSERT(LThreadType == THREAD_MAIN_ACCEPT);
 
 	/// make socket non-blocking
 	u_long arg = 1 ;
@@ -37,6 +38,8 @@ bool ClientSession::OnConnect(SOCKADDR_IN* addr)
 
 	printf_s("[DEBUG] Client Connected: IP=%s, PORT=%d\n", inet_ntoa(mClientAddr.sin_addr), ntohs(mClientAddr.sin_port));
 
+	GSessionManager->IncreaseConnectionCount();
+
 	return PostRecv() ;
 }
 
@@ -57,7 +60,9 @@ void ClientSession::Disconnect(DisconnectReason dr)
 		printf_s("[DEBUG] setsockopt linger option error: %d\n", GetLastError());
 	}
 
-	printf_s("[DEBUG] Client Disconnected: Reason=%d IP=%s, PORT=%d\n", dr, inet_ntoa(mClientAddr.sin_addr), ntohs(mClientAddr.sin_port));
+	printf_s("[DEBUG] Client Disconnected: Reason=%d IP=%s, PORT=%d \n", dr, inet_ntoa(mClientAddr.sin_addr), ntohs(mClientAddr.sin_port));
+	
+	GSessionManager->DecreaseConnectionCount();
 
 	closesocket(mSocket) ;
 
@@ -69,7 +74,6 @@ bool ClientSession::PostRecv() const
 	if (!IsConnected())
 		return false;
 
-	//TODO: pooling...
 	OverlappedIOContext* recvContext = new OverlappedIOContext(this, IO_RECV);
 
 	DWORD recvbytes = 0;
@@ -92,9 +96,8 @@ bool ClientSession::PostSend(const char* buf, int len) const
 	if (!IsConnected())
 		return false;
 
-	//TODO: pooling...
 	OverlappedIOContext* sendContext = new OverlappedIOContext(this, IO_SEND);
-	
+
 	/// copy for echoing back..
 	memcpy_s(sendContext->mBuffer, BUFSIZE, buf, len);
 

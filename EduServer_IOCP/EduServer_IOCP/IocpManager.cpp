@@ -4,6 +4,7 @@
 #include "ClientSession.h"
 #include "SessionManager.h"
 
+__declspec(thread) int LIoThreadId = 0;
 IocpManager* GIocpManager = nullptr;
 
 IocpManager::IocpManager() : mCompletionPort(NULL), mIoThreadCount(2), mListenSocket(NULL)
@@ -60,7 +61,7 @@ bool IocpManager::StartIoThreads()
 	for (int i = 0; i < mIoThreadCount; ++i)
 	{
 		DWORD dwThreadId;
-		HANDLE hThread = (HANDLE)_beginthreadex(NULL, 0, IoWorkerThread, mCompletionPort, 0, (unsigned int*)&dwThreadId);
+		HANDLE hThread = (HANDLE)_beginthreadex(NULL, 0, IoWorkerThread, (LPVOID)(i+1), 0, (unsigned int*)&dwThreadId);
 		if (hThread == NULL)
 			return false;
 	}
@@ -118,7 +119,8 @@ unsigned int WINAPI IocpManager::IoWorkerThread(LPVOID lpParam)
 {
 	LThreadType = THREAD_IO_WORKER;
 
-	HANDLE hComletionPort = (HANDLE)lpParam;
+	LIoThreadId = reinterpret_cast<int>(lpParam);
+	HANDLE hComletionPort = GIocpManager->GetComletionPort();
 
 	while (true)
 	{
@@ -126,14 +128,21 @@ unsigned int WINAPI IocpManager::IoWorkerThread(LPVOID lpParam)
 		OverlappedIOContext* context = nullptr;
 		ClientSession* asCompletionKey = nullptr;
 
-		int ret = GetQueuedCompletionStatus(hComletionPort, &dwTransferred, (LPDWORD)&asCompletionKey, (LPOVERLAPPED*)&context, INFINITE);
+		int ret = GetQueuedCompletionStatus(hComletionPort, &dwTransferred, (PULONG_PTR)&asCompletionKey, (LPOVERLAPPED*)&context, 20);
 
-		if (ret == 0 || dwTransferred == 0)
+		if ( ret == 0 )
 		{
-			/// connection closing
-			asCompletionKey->Disconnect(DR_RECV_ZERO);
-			GSessionManager->DeleteClientSession(asCompletionKey);
-			continue;
+			/// check time out first 
+			if (GetLastError() == WAIT_TIMEOUT)
+				continue;
+
+			if (dwTransferred == 0)
+			{
+				/// connection closing
+				asCompletionKey->Disconnect(DR_RECV_ZERO);
+				GSessionManager->DeleteClientSession(asCompletionKey);
+				continue;
+			}
 		}
 
 		/// what? 

@@ -8,11 +8,14 @@ class ClientSession;
 class SessionManager
 {
 public:
-	SessionManager()	{}
+	SessionManager() : mCurrentConnectionCount(0)	{}
 
 	ClientSession* CreateClientSession(SOCKET sock);
 
 	void DeleteClientSession(ClientSession* client);
+
+	int IncreaseConnectionCount() { return InterlockedIncrement(&mCurrentConnectionCount); }
+	int DecreaseConnectionCount() { return InterlockedDecrement(&mCurrentConnectionCount); }
 
 
 private:
@@ -21,6 +24,7 @@ private:
 
 	FastSpinlock mLock;
 
+	volatile long mCurrentConnectionCount;
 };
 
 extern SessionManager* GSessionManager;

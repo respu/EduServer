@@ -1,10 +1,11 @@
 #pragma once
-#include "FastSpinlock.h"
+#include "ObjectPool.h"
 
 #define BUFSIZE	4096
 
 class ClientSession ;
 class SessionManager;
+
 enum IOType
 {
 	IO_NONE,
@@ -22,7 +23,7 @@ enum DisconnectReason
 	DR_COMPLETION_ERROR,
 };
 
-struct OverlappedIOContext
+struct OverlappedIOContext : public ObjectPool<OverlappedIOContext>
 {
 	OverlappedIOContext(const ClientSession* owner, IOType ioType) : mSessionObject(owner), mIoType(ioType)
 	{

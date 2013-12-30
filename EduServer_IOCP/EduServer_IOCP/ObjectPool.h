@@ -4,7 +4,7 @@
 #include "Exception.h"
 #include "FastSpinlock.h"
 
-template <class TOBJECT, int ALLOC_COUNT = 10>
+template <class TOBJECT, int ALLOC_COUNT = 100>
 class ObjectPool : public ClassTypeLock<TOBJECT>
 {
 public:

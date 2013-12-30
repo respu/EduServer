@@ -34,6 +34,8 @@ private:
 	SOCKET	mListenSocket;
 
 
+
 };
 
+extern __declspec(thread) int LIoThreadId;
 extern IocpManager* GIocpManager;
