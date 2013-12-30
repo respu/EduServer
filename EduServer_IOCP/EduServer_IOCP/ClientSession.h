@@ -11,6 +11,7 @@ enum IOType
 	IO_NONE,
 	IO_SEND,
 	IO_RECV,
+	IO_RECV_ZERO,
 	IO_ACCEPT
 } ;
 

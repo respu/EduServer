@@ -4,6 +4,8 @@
 #include "ClientSession.h"
 #include "SessionManager.h"
 
+#define GQCS_TIMEOUT	20
+
 __declspec(thread) int LIoThreadId = 0;
 IocpManager* GIocpManager = nullptr;
 
@@ -128,21 +130,18 @@ unsigned int WINAPI IocpManager::IoWorkerThread(LPVOID lpParam)
 		OverlappedIOContext* context = nullptr;
 		ClientSession* asCompletionKey = nullptr;
 
-		int ret = GetQueuedCompletionStatus(hComletionPort, &dwTransferred, (PULONG_PTR)&asCompletionKey, (LPOVERLAPPED*)&context, 20);
+		int ret = GetQueuedCompletionStatus(hComletionPort, &dwTransferred, (PULONG_PTR)&asCompletionKey, (LPOVERLAPPED*)&context, GQCS_TIMEOUT);
 
-		if ( ret == 0 )
+		/// check time out first 
+		if (ret == 0 && GetLastError()==WAIT_TIMEOUT)
+			continue;
+
+		if (ret == 0 || dwTransferred == 0)
 		{
-			/// check time out first 
-			if (GetLastError() == WAIT_TIMEOUT)
-				continue;
-
-			if (dwTransferred == 0)
-			{
-				/// connection closing
-				asCompletionKey->Disconnect(DR_RECV_ZERO);
-				GSessionManager->DeleteClientSession(asCompletionKey);
-				continue;
-			}
+			/// connection closing
+			asCompletionKey->Disconnect(DR_RECV_ZERO);
+			GSessionManager->DeleteClientSession(asCompletionKey);
+			continue;
 		}
 
 		/// what? 
