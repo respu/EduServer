@@ -29,11 +29,14 @@ int _tmain(int argc, _TCHAR* argv[])
 	if (false == GIocpManager->StartIoThreads())
 		return -1;
 
+	printf_s("Start Server\n");
 	if (false == GIocpManager->StartAcceptLoop())
 		return -1;
 
 
 	GIocpManager->Finalize();
+
+	printf_s("End Server\n");
 
 	delete GIocpManager;
 	delete GSessionManager;

@@ -64,7 +64,7 @@ void ClientSession::Disconnect(DisconnectReason dr)
 	mConnected = false ;
 }
 
-bool ClientSession::PostRecv()
+bool ClientSession::PostRecv() const
 {
 	if (!IsConnected())
 		return false;
@@ -77,8 +77,34 @@ bool ClientSession::PostRecv()
 	recvContext->mWsaBuf.len = BUFSIZE;
 	recvContext->mWsaBuf.buf = recvContext->mBuffer;
 
-	/// 비동기 입출력 시작
+	/// start async recv
 	if (SOCKET_ERROR == WSARecv(mSocket, &recvContext->mWsaBuf, 1, &recvbytes, &flags, (LPWSAOVERLAPPED)recvContext, NULL))
+	{
+		if (WSAGetLastError() != WSA_IO_PENDING)
+			return false;
+	}
+
+	return true;
+}
+
+bool ClientSession::PostSend(const char* buf, int len) const
+{
+	if (!IsConnected())
+		return false;
+
+	//TODO: pooling...
+	OverlappedIOContext* sendContext = new OverlappedIOContext(this, IO_SEND);
+	
+	/// copy for echoing back..
+	memcpy_s(sendContext->mBuffer, BUFSIZE, buf, len);
+
+	DWORD sendbytes = 0;
+	DWORD flags = 0;
+	sendContext->mWsaBuf.len = len;
+	sendContext->mWsaBuf.buf = sendContext->mBuffer;
+
+	/// start async send
+	if (SOCKET_ERROR == WSASend(mSocket, &sendContext->mWsaBuf, 1, &sendbytes, flags, (LPWSAOVERLAPPED)sendContext, NULL))
 	{
 		if (WSAGetLastError() != WSA_IO_PENDING)
 			return false;

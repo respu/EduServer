@@ -24,15 +24,15 @@ enum DisconnectReason
 
 struct OverlappedIOContext
 {
-	OverlappedIOContext(ClientSession* owner, IOType ioType) : mSessionObject(owner), mIoType(ioType)
+	OverlappedIOContext(const ClientSession* owner, IOType ioType) : mSessionObject(owner), mIoType(ioType)
 	{
 		memset(&mOverlapped, 0, sizeof(OVERLAPPED));
 		memset(&mWsaBuf, 0, sizeof(WSABUF));
 		memset(mBuffer, 0, BUFSIZE);
 	}
 
-	OVERLAPPED		mOverlapped ;
-	ClientSession*	mSessionObject ;
+	OVERLAPPED				mOverlapped ;
+	const ClientSession*	mSessionObject ;
 	IOType			mIoType ;
 	WSABUF			mWsaBuf;
 	char			mBuffer[BUFSIZE];
@@ -53,7 +53,8 @@ public:
 	bool	OnConnect(SOCKADDR_IN* addr);
 	bool	IsConnected() const { return mConnected; }
 
-	bool	PostRecv();
+	bool	PostRecv() const ;
+	bool	PostSend(const char* buf, int len) const ;
 	void	Disconnect(DisconnectReason dr);
 	
 
