@@ -4,7 +4,7 @@
 #include "ClientSession.h"
 #include "SessionManager.h"
 
-#define GQCS_TIMEOUT	20
+#define GQCS_TIMEOUT	INFINITE //20
 
 __declspec(thread) int LIoThreadId = 0;
 IocpManager* GIocpManager = nullptr;
@@ -136,7 +136,7 @@ unsigned int WINAPI IocpManager::IoWorkerThread(LPVOID lpParam)
 		if (ret == 0 && GetLastError()==WAIT_TIMEOUT)
 			continue;
 
-		if (ret == 0 || dwTransferred == 0)
+		if (ret == 0 || (dwTransferred==0 && context->mIoType!=IO_RECV_ZERO))
 		{
 			/// connection closing
 			asCompletionKey->Disconnect(DR_RECV_ZERO);
@@ -155,11 +155,15 @@ unsigned int WINAPI IocpManager::IoWorkerThread(LPVOID lpParam)
 		switch (context->mIoType)
 		{
 		case IO_SEND:
-			completionOk = SendCompletion(asCompletionKey, context, dwTransferred);
+			completionOk = SendCompletion(asCompletionKey, static_cast<OverlappedSendContext*>(context), dwTransferred);
+			break;
+
+		case IO_RECV_ZERO:
+			completionOk = PreReceiveCompletion(asCompletionKey, static_cast<OverlappedPreRecvContext*>(context), dwTransferred);
 			break;
 
 		case IO_RECV:
-			completionOk = ReceiveCompletion(asCompletionKey, context, dwTransferred);
+			completionOk = ReceiveCompletion(asCompletionKey, static_cast<OverlappedRecvContext*>(context), dwTransferred);
 			break;
 
 		default:
@@ -179,7 +183,15 @@ unsigned int WINAPI IocpManager::IoWorkerThread(LPVOID lpParam)
 	return 0;
 }
 
-bool IocpManager::ReceiveCompletion(const ClientSession* client, OverlappedIOContext* context, DWORD dwTransferred)
+bool IocpManager::PreReceiveCompletion(const ClientSession* client, OverlappedPreRecvContext* context, DWORD dwTransferred)
+{
+	delete context;
+
+	// real receive...
+	return client->PostRecv();
+}
+
+bool IocpManager::ReceiveCompletion(const ClientSession* client, OverlappedRecvContext* context, DWORD dwTransferred)
 {
 
 	/// echo back
@@ -191,10 +203,10 @@ bool IocpManager::ReceiveCompletion(const ClientSession* client, OverlappedIOCon
 
 	delete context;
 
-	return client->PostRecv();
+	return client->PreRecv();
 }
 
-bool IocpManager::SendCompletion(const ClientSession* client, OverlappedIOContext* context, DWORD dwTransferred)
+bool IocpManager::SendCompletion(const ClientSession* client, OverlappedSendContext* context, DWORD dwTransferred)
 {
 	
 	if (context->mWsaBuf.len != dwTransferred)

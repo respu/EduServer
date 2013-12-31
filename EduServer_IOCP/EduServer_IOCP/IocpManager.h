@@ -1,7 +1,10 @@
 #pragma once
 
 class ClientSession;
-struct OverlappedIOContext;
+
+struct OverlappedSendContext;
+struct OverlappedPreRecvContext;
+struct OverlappedRecvContext;
 
 class IocpManager
 {
@@ -23,8 +26,9 @@ private:
 
 	static unsigned int WINAPI IoWorkerThread(LPVOID lpParam);
 
-	static bool ReceiveCompletion(const ClientSession* client, OverlappedIOContext* context, DWORD dwTransferred);
-	static bool SendCompletion(const ClientSession* client, OverlappedIOContext* context, DWORD dwTransferred);
+	static bool PreReceiveCompletion(const ClientSession* client, OverlappedPreRecvContext* context, DWORD dwTransferred);
+	static bool ReceiveCompletion(const ClientSession* client, OverlappedRecvContext* context, DWORD dwTransferred);
+	static bool SendCompletion(const ClientSession* client, OverlappedSendContext* context, DWORD dwTransferred);
 
 private:
 

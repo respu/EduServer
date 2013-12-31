@@ -40,7 +40,7 @@ bool ClientSession::OnConnect(SOCKADDR_IN* addr)
 
 	GSessionManager->IncreaseConnectionCount();
 
-	return PostRecv() ;
+	return PreRecv() ;
 }
 
 void ClientSession::Disconnect(DisconnectReason dr)
@@ -69,19 +69,41 @@ void ClientSession::Disconnect(DisconnectReason dr)
 	mConnected = false ;
 }
 
+bool ClientSession::PreRecv() const
+{
+	if (!IsConnected())
+		return false;
+
+	OverlappedPreRecvContext* recvContext = new OverlappedPreRecvContext(this);
+
+	DWORD recvbytes = 0;
+	DWORD flags = 0;
+	recvContext->mWsaBuf.len = 0;
+	recvContext->mWsaBuf.buf = nullptr;
+
+	/// start async recv
+	if (SOCKET_ERROR == WSARecv(mSocket, &recvContext->mWsaBuf, 1, &recvbytes, &flags, (LPWSAOVERLAPPED)recvContext, NULL))
+	{
+		if (WSAGetLastError() != WSA_IO_PENDING)
+			return false;
+	}
+
+	return true;
+}
+
 bool ClientSession::PostRecv() const
 {
 	if (!IsConnected())
 		return false;
 
-	OverlappedIOContext* recvContext = new OverlappedIOContext(this, IO_RECV);
+	OverlappedRecvContext* recvContext = new OverlappedRecvContext(this);
 
 	DWORD recvbytes = 0;
 	DWORD flags = 0;
 	recvContext->mWsaBuf.len = BUFSIZE;
 	recvContext->mWsaBuf.buf = recvContext->mBuffer;
 
-	/// start async recv
+	/// start real recv
 	if (SOCKET_ERROR == WSARecv(mSocket, &recvContext->mWsaBuf, 1, &recvbytes, &flags, (LPWSAOVERLAPPED)recvContext, NULL))
 	{
 		if (WSAGetLastError() != WSA_IO_PENDING)
@@ -96,7 +118,7 @@ bool ClientSession::PostSend(const char* buf, int len) const
 	if (!IsConnected())
 		return false;
 
-	OverlappedIOContext* sendContext = new OverlappedIOContext(this, IO_SEND);
+	OverlappedSendContext* sendContext = new OverlappedSendContext(this);
 
 	/// copy for echoing back..
 	memcpy_s(sendContext->mBuffer, BUFSIZE, buf, len);

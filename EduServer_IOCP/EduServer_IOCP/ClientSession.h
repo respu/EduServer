@@ -24,21 +24,50 @@ enum DisconnectReason
 	DR_COMPLETION_ERROR,
 };
 
-struct OverlappedIOContext : public ObjectPool<OverlappedIOContext>
+struct OverlappedIOContext
 {
 	OverlappedIOContext(const ClientSession* owner, IOType ioType) : mSessionObject(owner), mIoType(ioType)
 	{
 		memset(&mOverlapped, 0, sizeof(OVERLAPPED));
 		memset(&mWsaBuf, 0, sizeof(WSABUF));
-		memset(mBuffer, 0, BUFSIZE);
 	}
 
 	OVERLAPPED				mOverlapped ;
 	const ClientSession*	mSessionObject ;
-	IOType			mIoType ;
-	WSABUF			mWsaBuf;
-	char			mBuffer[BUFSIZE];
+	IOType					mIoType ;
+	WSABUF					mWsaBuf;
+	
 } ;
+
+struct OverlappedSendContext : public OverlappedIOContext, public ObjectPool<OverlappedSendContext>
+{
+	OverlappedSendContext(const ClientSession* owner) : OverlappedIOContext(owner, IO_SEND)
+	{
+		memset(mBuffer, 0, BUFSIZE);
+	}
+
+	char			mBuffer[BUFSIZE];
+};
+
+struct OverlappedRecvContext : public OverlappedIOContext, public ObjectPool<OverlappedRecvContext>
+{
+	OverlappedRecvContext(const ClientSession* owner) : OverlappedIOContext(owner, IO_RECV)
+	{
+		memset(mBuffer, 0, BUFSIZE);
+	}
+
+	char			mBuffer[BUFSIZE];
+};
+
+struct OverlappedPreRecvContext : public OverlappedIOContext, public ObjectPool<OverlappedPreRecvContext>
+{
+	OverlappedPreRecvContext(const ClientSession* owner) : OverlappedIOContext(owner, IO_RECV_ZERO)
+	{
+	}
+	
+};
+
+
 
 
 class ClientSession
@@ -55,6 +84,7 @@ public:
 	bool	OnConnect(SOCKADDR_IN* addr);
 	bool	IsConnected() const { return mConnected; }
 
+	bool	PreRecv() const ; ///< zero byte recv
 	bool	PostRecv() const ;
 	bool	PostSend(const char* buf, int len) const ;
 	void	Disconnect(DisconnectReason dr);
