@@ -5,7 +5,7 @@ IOCP Echo Server for educational purposes only.
 
 # Student Homework
 
-zero byte pre recv로 바꾸는거 (pre-recv lock으로 인한 cpu 사용률 낮추기: io 종류에 따라 overapped context 분리)
+cpu 사용률 낮추기: 세션에서 cyclic buffer 들고 있고, 이를 이용한 처리.
 AcceptEx로 바꾸는거 (접속 처리 성능 향상)
 
 graceful server shutdown (+command line tool)
