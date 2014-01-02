@@ -41,6 +41,9 @@
     <ClInclude Include="ObjectPool.h">
       <Filter>Utils</Filter>
     </ClInclude>
+    <ClInclude Include="CircularBuffer.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -62,6 +65,9 @@
       <Filter>Main</Filter>
     </ClCompile>
     <ClCompile Include="FastSpinlock.cpp">
+      <Filter>Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="CircularBuffer.cpp">
       <Filter>Utils</Filter>
     </ClCompile>
   </ItemGroup>

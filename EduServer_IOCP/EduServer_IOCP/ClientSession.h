@@ -1,7 +1,8 @@
 #pragma once
 #include "ObjectPool.h"
+#include "CircularBuffer.h"
 
-#define BUFSIZE	4096
+#define BUFSIZE	65536
 
 class ClientSession ;
 class SessionManager;
@@ -43,20 +44,14 @@ struct OverlappedSendContext : public OverlappedIOContext, public ObjectPool<Ove
 {
 	OverlappedSendContext(const ClientSession* owner) : OverlappedIOContext(owner, IO_SEND)
 	{
-		memset(mBuffer, 0, BUFSIZE);
 	}
-
-	char			mBuffer[BUFSIZE];
 };
 
 struct OverlappedRecvContext : public OverlappedIOContext, public ObjectPool<OverlappedRecvContext>
 {
 	OverlappedRecvContext(const ClientSession* owner) : OverlappedIOContext(owner, IO_RECV)
 	{
-		memset(mBuffer, 0, BUFSIZE);
 	}
-
-	char			mBuffer[BUFSIZE];
 };
 
 struct OverlappedPreRecvContext : public OverlappedIOContext, public ObjectPool<OverlappedPreRecvContext>
@@ -64,17 +59,16 @@ struct OverlappedPreRecvContext : public OverlappedIOContext, public ObjectPool<
 	OverlappedPreRecvContext(const ClientSession* owner) : OverlappedIOContext(owner, IO_RECV_ZERO)
 	{
 	}
-	
 };
 
 
 
 
-class ClientSession
+class ClientSession : public ObjectPool<ClientSession>
 {
 public:
 	ClientSession(SOCKET sock) 
-		: mSocket(sock), mConnected(false)
+		: mSocket(sock), mConnected(false), mBuffer(BUFSIZE)
 	{
 		memset(&mClientAddr, 0, sizeof(SOCKADDR_IN)) ;
 	}
@@ -85,8 +79,13 @@ public:
 	bool	IsConnected() const { return mConnected; }
 
 	bool	PreRecv() const ; ///< zero byte recv
-	bool	PostRecv() const ;
-	bool	PostSend(const char* buf, int len) const ;
+
+	bool	PostRecv();
+	void	RecvCompletion(DWORD transferred);
+
+	bool	PostSend();
+	void	SendCompletion(DWORD transferred);
+	
 	void	Disconnect(DisconnectReason dr);
 	
 
@@ -96,7 +95,9 @@ private:
 
 	SOCKADDR_IN		mClientAddr ;
 		
-	FastSpinlock	mLock;
+	FastSpinlock	mSessionLock;
+
+	CircularBuffer	mBuffer;
 
 	friend class SessionManager;
 } ;

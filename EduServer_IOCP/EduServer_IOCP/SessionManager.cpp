@@ -1,7 +1,8 @@
 #include "stdafx.h"
+#include "FastSpinlock.h"
 #include "ClientSession.h"
 #include "SessionManager.h"
-#include "FastSpinlock.h"
+
 
 SessionManager* GSessionManager = nullptr;
 

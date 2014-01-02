@@ -183,7 +183,7 @@ unsigned int WINAPI IocpManager::IoWorkerThread(LPVOID lpParam)
 	return 0;
 }
 
-bool IocpManager::PreReceiveCompletion(const ClientSession* client, OverlappedPreRecvContext* context, DWORD dwTransferred)
+bool IocpManager::PreReceiveCompletion(ClientSession* client, OverlappedPreRecvContext* context, DWORD dwTransferred)
 {
 	delete context;
 
@@ -191,11 +191,12 @@ bool IocpManager::PreReceiveCompletion(const ClientSession* client, OverlappedPr
 	return client->PostRecv();
 }
 
-bool IocpManager::ReceiveCompletion(const ClientSession* client, OverlappedRecvContext* context, DWORD dwTransferred)
+bool IocpManager::ReceiveCompletion(ClientSession* client, OverlappedRecvContext* context, DWORD dwTransferred)
 {
+	client->RecvCompletion(dwTransferred);
 
 	/// echo back
-	if (false == client->PostSend(context->mBuffer, dwTransferred))
+	if (false == client->PostSend())
 	{
 		delete context;
 		return false;
@@ -206,9 +207,10 @@ bool IocpManager::ReceiveCompletion(const ClientSession* client, OverlappedRecvC
 	return client->PreRecv();
 }
 
-bool IocpManager::SendCompletion(const ClientSession* client, OverlappedSendContext* context, DWORD dwTransferred)
+bool IocpManager::SendCompletion(ClientSession* client, OverlappedSendContext* context, DWORD dwTransferred)
 {
-	
+	client->SendCompletion(dwTransferred);
+
 	if (context->mWsaBuf.len != dwTransferred)
 	{
 		printf_s("Partial SendCompletion requested [%d], sent [%d]\n", context->mWsaBuf.len, dwTransferred) ;

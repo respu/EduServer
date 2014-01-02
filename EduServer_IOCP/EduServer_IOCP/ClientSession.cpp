@@ -7,7 +7,7 @@
 
 bool ClientSession::OnConnect(SOCKADDR_IN* addr)
 {
-	FastSpinlockGuard criticalSection(mLock);
+	FastSpinlockGuard criticalSection(mSessionLock);
 
 	CRASH_ASSERT(LThreadType == THREAD_MAIN_ACCEPT);
 
@@ -45,7 +45,7 @@ bool ClientSession::OnConnect(SOCKADDR_IN* addr)
 
 void ClientSession::Disconnect(DisconnectReason dr)
 {
-	FastSpinlockGuard criticalSection(mLock);
+	FastSpinlockGuard criticalSection(mSessionLock);
 
 	if ( !IsConnected() )
 		return ;
@@ -91,17 +91,23 @@ bool ClientSession::PreRecv() const
 	return true;
 }
 
-bool ClientSession::PostRecv() const
+bool ClientSession::PostRecv()
 {
+	FastSpinlockGuard criticalSection(mSessionLock);
+
 	if (!IsConnected())
+		return false;
+
+	if (0 == mBuffer.GetFreeSpaceSize())
 		return false;
 
 	OverlappedRecvContext* recvContext = new OverlappedRecvContext(this);
 
 	DWORD recvbytes = 0;
 	DWORD flags = 0;
-	recvContext->mWsaBuf.len = BUFSIZE;
-	recvContext->mWsaBuf.buf = recvContext->mBuffer;
+	recvContext->mWsaBuf.len = (ULONG)mBuffer.GetFreeSpaceSize();
+	recvContext->mWsaBuf.buf = mBuffer.GetBuffer();
+	
 
 	/// start real recv
 	if (SOCKET_ERROR == WSARecv(mSocket, &recvContext->mWsaBuf, 1, &recvbytes, &flags, (LPWSAOVERLAPPED)recvContext, NULL))
@@ -113,20 +119,29 @@ bool ClientSession::PostRecv() const
 	return true;
 }
 
-bool ClientSession::PostSend(const char* buf, int len) const
+void ClientSession::RecvCompletion(DWORD transferred)
 {
+	FastSpinlockGuard criticalSection(mSessionLock);
+
+	mBuffer.Commit(transferred);
+}
+
+bool ClientSession::PostSend()
+{
+	FastSpinlockGuard criticalSection(mSessionLock);
+
 	if (!IsConnected())
 		return false;
 
-	OverlappedSendContext* sendContext = new OverlappedSendContext(this);
+	if ( 0 == mBuffer.GetContiguiousBytes() )
+		return true;
 
-	/// copy for echoing back..
-	memcpy_s(sendContext->mBuffer, BUFSIZE, buf, len);
+	OverlappedSendContext* sendContext = new OverlappedSendContext(this);
 
 	DWORD sendbytes = 0;
 	DWORD flags = 0;
-	sendContext->mWsaBuf.len = len;
-	sendContext->mWsaBuf.buf = sendContext->mBuffer;
+	sendContext->mWsaBuf.len = (ULONG) mBuffer.GetContiguiousBytes(); 
+	sendContext->mWsaBuf.buf = mBuffer.GetBufferStart();
 
 	/// start async send
 	if (SOCKET_ERROR == WSASend(mSocket, &sendContext->mWsaBuf, 1, &sendbytes, flags, (LPWSAOVERLAPPED)sendContext, NULL))
@@ -136,4 +151,11 @@ bool ClientSession::PostSend(const char* buf, int len) const
 	}
 
 	return true;
+}
+
+void ClientSession::SendCompletion(DWORD transferred)
+{
+	FastSpinlockGuard criticalSection(mSessionLock);
+
+	mBuffer.Remove(transferred);
 }
