@@ -5,6 +5,16 @@
 #include "IocpManager.h"
 #include "SessionManager.h"
 
+
+OverlappedIOContext::OverlappedIOContext(ClientSession* owner, IOType ioType) 
+: mSessionObject(owner), mIoType(ioType)
+{
+	memset(&mOverlapped, 0, sizeof(OVERLAPPED));
+	memset(&mWsaBuf, 0, sizeof(WSABUF));
+	mSessionObject->AddRef();
+}
+
+
 bool ClientSession::OnConnect(SOCKADDR_IN* addr)
 {
 	FastSpinlockGuard criticalSection(mSessionLock);
@@ -69,7 +79,7 @@ void ClientSession::Disconnect(DisconnectReason dr)
 	mConnected = false ;
 }
 
-bool ClientSession::PreRecv() const
+bool ClientSession::PreRecv()
 {
 	if (!IsConnected())
 		return false;
@@ -85,7 +95,11 @@ bool ClientSession::PreRecv() const
 	if (SOCKET_ERROR == WSARecv(mSocket, &recvContext->mWsaBuf, 1, &recvbytes, &flags, (LPWSAOVERLAPPED)recvContext, NULL))
 	{
 		if (WSAGetLastError() != WSA_IO_PENDING)
+		{
+			DeleteIoContext(recvContext);
+			printf_s("ClientSession::PreRecv Error : %d\n", GetLastError());
 			return false;
+		}
 	}
 
 	return true;
@@ -113,7 +127,12 @@ bool ClientSession::PostRecv()
 	if (SOCKET_ERROR == WSARecv(mSocket, &recvContext->mWsaBuf, 1, &recvbytes, &flags, (LPWSAOVERLAPPED)recvContext, NULL))
 	{
 		if (WSAGetLastError() != WSA_IO_PENDING)
+		{
+			DeleteIoContext(recvContext);
+			printf_s("ClientSession::PostRecv Error : %d\n", GetLastError());
 			return false;
+		}
+			
 	}
 
 	return true;
@@ -147,7 +166,12 @@ bool ClientSession::PostSend()
 	if (SOCKET_ERROR == WSASend(mSocket, &sendContext->mWsaBuf, 1, &sendbytes, flags, (LPWSAOVERLAPPED)sendContext, NULL))
 	{
 		if (WSAGetLastError() != WSA_IO_PENDING)
+		{
+			DeleteIoContext(sendContext);
+			printf_s("ClientSession::PostSend Error : %d\n", GetLastError());
 			return false;
+		}
+			
 	}
 
 	return true;
@@ -159,3 +183,51 @@ void ClientSession::SendCompletion(DWORD transferred)
 
 	mBuffer.Remove(transferred);
 }
+
+
+void ClientSession::AddRef()
+{
+	CRASH_ASSERT(InterlockedIncrement(&mRefCount) > 0);
+}
+
+void ClientSession::ReleaseRef()
+{
+	long ret = InterlockedDecrement(&mRefCount);
+	CRASH_ASSERT(ret >= 0);
+	
+	if (ret == 0)
+	{
+		GSessionManager->DeleteClientSession(this);
+	}
+}
+
+
+void DeleteIoContext(OverlappedIOContext* context)
+{
+	if (nullptr == context)
+		return;
+
+	context->mSessionObject->ReleaseRef();
+
+	/// ObjectPool's operate delete dispatch
+	switch (context->mIoType)
+	{
+	case IO_SEND:
+		delete static_cast<OverlappedSendContext*>(context);
+		break;
+
+	case IO_RECV_ZERO:
+		delete static_cast<OverlappedPreRecvContext*>(context);
+		break;
+
+	case IO_RECV:
+		delete static_cast<OverlappedRecvContext*>(context);
+		break;
+
+	default:
+		CRASH_ASSERT(false);
+	}
+
+	
+}
+

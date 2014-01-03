@@ -9,6 +9,7 @@ SessionManager* GSessionManager = nullptr;
 ClientSession* SessionManager::CreateClientSession(SOCKET sock)
 {
 	ClientSession* client = new ClientSession(sock);
+	client->AddRef();
 
 	mLock.EnterLock();
 	{

@@ -19,56 +19,53 @@ enum IOType
 enum DisconnectReason
 {
 	DR_NONE,
-	DR_RECV_ZERO,
 	DR_ACTIVE,
 	DR_ONCONNECT_ERROR,
+	DR_IO_REQUEST_ERROR,
 	DR_COMPLETION_ERROR,
 };
 
 struct OverlappedIOContext
 {
-	OverlappedIOContext(const ClientSession* owner, IOType ioType) : mSessionObject(owner), mIoType(ioType)
-	{
-		memset(&mOverlapped, 0, sizeof(OVERLAPPED));
-		memset(&mWsaBuf, 0, sizeof(WSABUF));
-	}
+	OverlappedIOContext(ClientSession* owner, IOType ioType);
 
-	OVERLAPPED				mOverlapped ;
-	const ClientSession*	mSessionObject ;
-	IOType					mIoType ;
-	WSABUF					mWsaBuf;
+	OVERLAPPED		mOverlapped ;
+	ClientSession*	mSessionObject ;
+	IOType			mIoType ;
+	WSABUF			mWsaBuf;
 	
 } ;
 
 struct OverlappedSendContext : public OverlappedIOContext, public ObjectPool<OverlappedSendContext>
 {
-	OverlappedSendContext(const ClientSession* owner) : OverlappedIOContext(owner, IO_SEND)
+	OverlappedSendContext(ClientSession* owner) : OverlappedIOContext(owner, IO_SEND)
 	{
 	}
 };
 
 struct OverlappedRecvContext : public OverlappedIOContext, public ObjectPool<OverlappedRecvContext>
 {
-	OverlappedRecvContext(const ClientSession* owner) : OverlappedIOContext(owner, IO_RECV)
+	OverlappedRecvContext(ClientSession* owner) : OverlappedIOContext(owner, IO_RECV)
 	{
 	}
 };
 
 struct OverlappedPreRecvContext : public OverlappedIOContext, public ObjectPool<OverlappedPreRecvContext>
 {
-	OverlappedPreRecvContext(const ClientSession* owner) : OverlappedIOContext(owner, IO_RECV_ZERO)
+	OverlappedPreRecvContext(ClientSession* owner) : OverlappedIOContext(owner, IO_RECV_ZERO)
 	{
 	}
 };
 
 
+void DeleteIoContext(OverlappedIOContext* context) ;
 
 
 class ClientSession : public ObjectPool<ClientSession>
 {
 public:
 	ClientSession(SOCKET sock) 
-		: mSocket(sock), mConnected(false), mBuffer(BUFSIZE)
+		: mSocket(sock), mConnected(false), mBuffer(BUFSIZE), mRefCount(0)
 	{
 		memset(&mClientAddr, 0, sizeof(SOCKADDR_IN)) ;
 	}
@@ -78,7 +75,7 @@ public:
 	bool	OnConnect(SOCKADDR_IN* addr);
 	bool	IsConnected() const { return mConnected; }
 
-	bool	PreRecv() const ; ///< zero byte recv
+	bool	PreRecv() ; ///< zero byte recv
 
 	bool	PostRecv();
 	void	RecvCompletion(DWORD transferred);
@@ -88,6 +85,8 @@ public:
 	
 	void	Disconnect(DisconnectReason dr);
 	
+	void	AddRef();
+	void	ReleaseRef();
 
 private:
 	bool			mConnected ;
@@ -99,9 +98,10 @@ private:
 
 	CircularBuffer	mBuffer;
 
+	volatile long	mRefCount;
+
 	friend class SessionManager;
 } ;
-
 
 
 

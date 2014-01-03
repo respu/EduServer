@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "Exception.h"
 #include "IocpManager.h"
 #include "EduServer_IOCP.h"
 #include "ClientSession.h"
@@ -100,7 +101,8 @@ bool IocpManager::StartAcceptLoop()
 		if (false == client->OnConnect(&clientaddr))
 		{
 			client->Disconnect(DR_ONCONNECT_ERROR);
-			GSessionManager->DeleteClientSession(client);
+			client->ReleaseRef();
+
 		}
 	}
 
@@ -115,7 +117,6 @@ void IocpManager::Finalize()
 	WSACleanup();
 
 }
-
 
 unsigned int WINAPI IocpManager::IoWorkerThread(LPVOID lpParam)
 {
@@ -132,26 +133,30 @@ unsigned int WINAPI IocpManager::IoWorkerThread(LPVOID lpParam)
 
 		int ret = GetQueuedCompletionStatus(hComletionPort, &dwTransferred, (PULONG_PTR)&asCompletionKey, (LPOVERLAPPED*)&context, GQCS_TIMEOUT);
 
-		/// check time out first 
-		if (ret == 0 && GetLastError()==WAIT_TIMEOUT)
-			continue;
-
-		if (ret == 0 || (dwTransferred==0 && context->mIoType!=IO_RECV_ZERO))
+		if (ret == 0)
 		{
-			/// connection closing
-			asCompletionKey->Disconnect(DR_RECV_ZERO);
-			GSessionManager->DeleteClientSession(asCompletionKey);
+			int gle = GetLastError();
+
+			/// check time out first 
+			if (gle == WAIT_TIMEOUT)
+				continue;
+		
+			if ( asCompletionKey )
+			{
+				/// connection closing
+				asCompletionKey->Disconnect(DR_COMPLETION_ERROR);
+				asCompletionKey->ReleaseRef();
+				printf_s("GLE: %d\n", gle);
+
+				//TODO: ERROR_NETNAME_DELETED, ERROR_INVALID_NETNAME
+				//DeleteIoContext(context);
+			}
+
 			continue;
 		}
 
-		/// what? 
-		if (nullptr == context)
-		{
-			printf_s("Completion Error : %d\n", GetLastError());
-			continue;
-		}
-
-		bool completionOk = true;
+	
+		bool completionOk = false;
 		switch (context->mIoType)
 		{
 		case IO_SEND:
@@ -168,16 +173,18 @@ unsigned int WINAPI IocpManager::IoWorkerThread(LPVOID lpParam)
 
 		default:
 			printf_s("Unknown I/O Type: %d\n", context->mIoType);
+			CRASH_ASSERT(false);
 			break;
 		}
 
 		if ( !completionOk )
 		{
 			/// connection closing
-			asCompletionKey->Disconnect(DR_COMPLETION_ERROR);
-			GSessionManager->DeleteClientSession(asCompletionKey);
+			asCompletionKey->Disconnect(DR_IO_REQUEST_ERROR);
+			asCompletionKey->ReleaseRef();
 		}
 
+		DeleteIoContext(context);
 	}
 
 	return 0;
@@ -185,8 +192,6 @@ unsigned int WINAPI IocpManager::IoWorkerThread(LPVOID lpParam)
 
 bool IocpManager::PreReceiveCompletion(ClientSession* client, OverlappedPreRecvContext* context, DWORD dwTransferred)
 {
-	delete context;
-
 	// real receive...
 	return client->PostRecv();
 }
@@ -197,13 +202,9 @@ bool IocpManager::ReceiveCompletion(ClientSession* client, OverlappedRecvContext
 
 	/// echo back
 	if (false == client->PostSend())
-	{
-		delete context;
 		return false;
-	}
-
-	delete context;
-
+	
+	// zero receive
 	return client->PreRecv();
 }
 
@@ -214,11 +215,8 @@ bool IocpManager::SendCompletion(ClientSession* client, OverlappedSendContext* c
 	if (context->mWsaBuf.len != dwTransferred)
 	{
 		printf_s("Partial SendCompletion requested [%d], sent [%d]\n", context->mWsaBuf.len, dwTransferred) ;
-
-		delete context;
 		return false;
 	}
-	
-	delete context;
+
 	return true;
 }

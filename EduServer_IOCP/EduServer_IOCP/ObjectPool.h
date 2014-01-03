@@ -4,6 +4,8 @@
 #include "Exception.h"
 #include "FastSpinlock.h"
 
+/// TOBJECT는 가상함수 테이블이 없어야 한다. (가상소멸자 호출 보장 못함)
+
 template <class TOBJECT, int ALLOC_COUNT = 100>
 class ObjectPool : public ClassTypeLock<TOBJECT>
 {

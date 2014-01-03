@@ -17,5 +17,6 @@
 #include <WinSock2.h>
 
 #include <cstdint>
+#include <memory>
 
 // TODO: reference additional headers your program requires here
