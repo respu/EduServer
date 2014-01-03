@@ -169,10 +169,13 @@ bool ClientSession::PostSend()
 		{
 			DeleteIoContext(sendContext);
 			printf_s("ClientSession::PostSend Error : %d\n", GetLastError());
+
 			return false;
 		}
 			
 	}
+
+
 
 	return true;
 }

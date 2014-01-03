@@ -70,6 +70,8 @@ public:
 		memset(&mClientAddr, 0, sizeof(SOCKADDR_IN)) ;
 	}
 
+	
+
 	~ClientSession() {}
 
 	bool	OnConnect(SOCKADDR_IN* addr);

@@ -133,7 +133,7 @@ unsigned int WINAPI IocpManager::IoWorkerThread(LPVOID lpParam)
 
 		int ret = GetQueuedCompletionStatus(hComletionPort, &dwTransferred, (PULONG_PTR)&asCompletionKey, (LPOVERLAPPED*)&context, GQCS_TIMEOUT);
 
-		if (ret == 0)
+		if (ret == 0 || dwTransferred == 0)
 		{
 			int gle = GetLastError();
 
@@ -141,18 +141,25 @@ unsigned int WINAPI IocpManager::IoWorkerThread(LPVOID lpParam)
 			if (gle == WAIT_TIMEOUT)
 				continue;
 		
-			if ( asCompletionKey )
+			if (ret && context->mIoType == IO_RECV_ZERO)
 			{
+				;
+			}
+			else
+			{
+				printf_s("TID: %d, GLE: %d, IO: %d, context: %x\n", LIoThreadId, gle, context->mIoType, context);
+
+				CRASH_ASSERT(nullptr != asCompletionKey);
 				/// connection closing
 				asCompletionKey->Disconnect(DR_COMPLETION_ERROR);
-				asCompletionKey->ReleaseRef();
-				printf_s("GLE: %d\n", gle);
-
+				//TODO asCompletionKey->ReleaseRef();
+				
 				//TODO: ERROR_NETNAME_DELETED, ERROR_INVALID_NETNAME
-				//DeleteIoContext(context);
-			}
+				DeleteIoContext(context);
 
-			continue;
+				continue;
+			}
+			
 		}
 
 	
@@ -179,9 +186,11 @@ unsigned int WINAPI IocpManager::IoWorkerThread(LPVOID lpParam)
 
 		if ( !completionOk )
 		{
+			printf_s("NOTOK: TID: %d, IO: %d, context: %x\n", LIoThreadId, context->mIoType, context);
+
 			/// connection closing
 			asCompletionKey->Disconnect(DR_IO_REQUEST_ERROR);
-			asCompletionKey->ReleaseRef();
+			//TODO asCompletionKey->ReleaseRef();
 		}
 
 		DeleteIoContext(context);
