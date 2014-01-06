@@ -13,7 +13,8 @@ enum IOType
 	IO_SEND,
 	IO_RECV,
 	IO_RECV_ZERO,
-	IO_ACCEPT
+	IO_ACCEPT,
+	IO_DISCONNECT
 } ;
 
 enum DisconnectReason

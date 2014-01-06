@@ -94,10 +94,10 @@ bool IocpManager::StartAcceptLoop()
 		int addrlen = sizeof(clientaddr);
 		getpeername(acceptedSock, (SOCKADDR*)&clientaddr, &addrlen);
 
-		/// 소켓 정보 구조체 할당과 초기화
+		/// new client session (should not be under any session locks)
 		ClientSession* client = GSessionManager->CreateClientSession(acceptedSock);
 
-		/// 클라 접속 처리
+		/// connection establishing and then issuing recv
 		if (false == client->OnConnect(&clientaddr))
 		{
 			client->Disconnect(DR_ONCONNECT_ERROR);
