@@ -76,6 +76,8 @@ void ClientSession::Disconnect(DisconnectReason dr)
 
 	closesocket(mSocket) ;
 
+	ReleaseRef();
+
 	mConnected = false ;
 }
 

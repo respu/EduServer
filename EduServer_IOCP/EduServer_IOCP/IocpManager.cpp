@@ -101,8 +101,6 @@ bool IocpManager::StartAcceptLoop()
 		if (false == client->OnConnect(&clientaddr))
 		{
 			client->Disconnect(DR_ONCONNECT_ERROR);
-			client->ReleaseRef();
-
 		}
 	}
 
@@ -143,23 +141,20 @@ unsigned int WINAPI IocpManager::IoWorkerThread(LPVOID lpParam)
 		
 			if (ret && context->mIoType == IO_RECV_ZERO)
 			{
-				;
+				; ///< do nothing... 
 			}
 			else
 			{
-				printf_s("TID: %d, GLE: %d, IO: %d, context: %x\n", LIoThreadId, gle, context->mIoType, context);
-
 				CRASH_ASSERT(nullptr != asCompletionKey);
-				/// connection closing
+		
+				/// In most cases in here: ERROR_NETNAME_DELETED(64)
+
 				asCompletionKey->Disconnect(DR_COMPLETION_ERROR);
-				//TODO asCompletionKey->ReleaseRef();
 				
-				//TODO: ERROR_NETNAME_DELETED, ERROR_INVALID_NETNAME
 				DeleteIoContext(context);
 
 				continue;
 			}
-			
 		}
 
 	
@@ -186,11 +181,8 @@ unsigned int WINAPI IocpManager::IoWorkerThread(LPVOID lpParam)
 
 		if ( !completionOk )
 		{
-			printf_s("NOTOK: TID: %d, IO: %d, context: %x\n", LIoThreadId, context->mIoType, context);
-
 			/// connection closing
 			asCompletionKey->Disconnect(DR_IO_REQUEST_ERROR);
-			//TODO asCompletionKey->ReleaseRef();
 		}
 
 		DeleteIoContext(context);
