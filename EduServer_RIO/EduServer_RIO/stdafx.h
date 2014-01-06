@@ -10,6 +10,13 @@
 #include <stdio.h>
 #include <tchar.h>
 
+#include <process.h>
+#include <assert.h>
+#include <limits.h>
 
+#include <WinSock2.h>
+
+#include <cstdint>
+#include <memory>
 
 // TODO: reference additional headers your program requires here
