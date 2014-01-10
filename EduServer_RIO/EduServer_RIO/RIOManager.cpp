@@ -29,6 +29,7 @@ bool RIOManager::Initialize()
 	if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
 		return false;
 
+
 	/// Create I/O Completion Port
 	mCompletionPort = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
 	if (mCompletionPort == NULL)
@@ -52,6 +53,13 @@ bool RIOManager::Initialize()
 	if (SOCKET_ERROR == bind(mListenSocket, (SOCKADDR*)&serveraddr, sizeof(serveraddr)))
 		return false;
 
+	/// RIO 함수 테이블 가져오기
+	GUID functionTableId = WSAID_MULTIPLE_RIO;
+	DWORD dwBytes = 0;
+
+	if ( WSAIoctl(mListenSocket, SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER, &functionTableId, sizeof(GUID), (void**)&mRioFunctionTable, sizeof(mRioFunctionTable), &dwBytes, NULL, NULL) )
+		return false;
+	
 	return true;
 }
 

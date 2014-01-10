@@ -15,6 +15,7 @@
 #include <limits.h>
 
 #include <WinSock2.h>
+#include <MSWSock.h>
 
 #include <cstdint>
 #include <memory>
