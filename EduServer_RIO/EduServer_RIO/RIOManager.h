@@ -34,7 +34,7 @@ private:
 	SOCKET	mListenSocket;
 
 	RIO_EXTENSION_FUNCTION_TABLE mRioFunctionTable ;
-	RIO_CQ mRioCompletionQueue;
+
 
 };
 
