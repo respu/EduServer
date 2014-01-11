@@ -36,12 +36,12 @@ bool ClientSession::OnConnect(SOCKADDR_IN* addr)
 		return false;
 	}
 	
-	HANDLE handle = CreateIoCompletionPort((HANDLE)mSocket, GRioManager->GetComletionPort(), (ULONG_PTR)this, 0);
-	if (handle != GRioManager->GetComletionPort())
-	{
-		printf_s("[DEBUG] CreateIoCompletionPort error: %d\n", GetLastError());
-		return false;
-	}
+// 	HANDLE handle = CreateIoCompletionPort((HANDLE)mSocket, GRioManager->GetComletionPort(), (ULONG_PTR)this, 0);
+// 	if (handle != GRioManager->GetComletionPort())
+// 	{
+// 		printf_s("[DEBUG] CreateIoCompletionPort error: %d\n", GetLastError());
+// 		return false;
+// 	}
 
 	memcpy(&mClientAddr, addr, sizeof(SOCKADDR_IN));
 	mConnected = true ;

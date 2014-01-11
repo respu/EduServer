@@ -4,10 +4,11 @@
 #include "ClientSession.h"
 #include "SessionManager.h"
 
+RIO_EXTENSION_FUNCTION_TABLE RIOManager::mRioFunctionTable = { 0, };
 
 RIOManager* GRioManager = nullptr;
 
-RIOManager::RIOManager() : mCompletionPort(NULL), mIoThreadCount(2), mListenSocket(NULL)
+RIOManager::RIOManager() : mListenSocket(NULL)
 {
 }
 
@@ -19,20 +20,9 @@ RIOManager::~RIOManager()
 
 bool RIOManager::Initialize()
 {
-	/// set num of I/O threads
-	SYSTEM_INFO si;
-	GetSystemInfo(&si);
-	mIoThreadCount = si.dwNumberOfProcessors;
-
 	/// winsock initializing
 	WSADATA wsa;
 	if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
-		return false;
-
-
-	/// Create I/O Completion Port
-	mCompletionPort = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
-	if (mCompletionPort == NULL)
 		return false;
 
 	/// create TCP socket
@@ -60,6 +50,7 @@ bool RIOManager::Initialize()
 	if ( WSAIoctl(mListenSocket, SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER, &functionTableId, sizeof(GUID), (void**)&mRioFunctionTable, sizeof(mRioFunctionTable), &dwBytes, NULL, NULL) )
 		return false;
 	
+
 	return true;
 }
 
@@ -67,7 +58,7 @@ bool RIOManager::Initialize()
 bool RIOManager::StartIoThreads()
 {
 	/// I/O Thread
-	for (int i = 0; i < mIoThreadCount; ++i)
+	for (int i = 0; i < MAX_RIO_THREAD; ++i)
 	{
 		DWORD dwThreadId;
 		HANDLE hThread = (HANDLE)_beginthreadex(NULL, 0, IoWorkerThread, (LPVOID)(i + 1), 0, (unsigned int*)&dwThreadId);
@@ -115,8 +106,6 @@ bool RIOManager::StartAcceptLoop()
 
 void RIOManager::Finalize()
 {
-	CloseHandle(mCompletionPort);
-
 	/// winsock finalizing
 	WSACleanup();
 
@@ -125,73 +114,100 @@ void RIOManager::Finalize()
 unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 {
 	LIoThreadId = reinterpret_cast<int>(lpParam);
-	HANDLE hComletionPort = GRioManager->GetComletionPort();
+
+	RIO_CQ rioCompletionQueue = mRioFunctionTable.RIOCreateCompletionQueue(MAX_CQ_SIZE_PER_RIO_THREAD, 0);
+	if (rioCompletionQueue == RIO_INVALID_CQ)
+		return -1;
+
+	RIORESULT results[MAX_RIO_RESULT];
 
 	while (true)
 	{
-		DWORD dwTransferred = 0;
-		OverlappedIOContext* context = nullptr;
-		ClientSession* asCompletionKey = nullptr;
-
-		int ret = GetQueuedCompletionStatus(hComletionPort, &dwTransferred, (PULONG_PTR)&asCompletionKey, (LPOVERLAPPED*)&context, INFINITE);
-
-		if (ret == 0 || dwTransferred == 0)
+		memset(results, 0, sizeof(results));
+		
+		ULONG numResults = mRioFunctionTable.RIODequeueCompletion(rioCompletionQueue, results, MAX_RIO_RESULT);
+		
+		if (0 == numResults)
 		{
-			int gle = GetLastError();
-
-			/// check time out first 
-			if (gle == WAIT_TIMEOUT)
-				continue;
-
-			if (ret && context->mIoType == IO_RECV_ZERO)
-			{
-				; ///< do nothing... 
-			}
-			else
-			{
-				CRASH_ASSERT(nullptr != asCompletionKey);
-
-				/// In most cases in here: ERROR_NETNAME_DELETED(64)
-
-				asCompletionKey->Disconnect(DR_COMPLETION_ERROR);
-
-				DeleteIoContext(context);
-
-				continue;
-			}
+			Sleep(1);
 		}
-
-
-		bool completionOk = false;
-		switch (context->mIoType)
+		else if (RIO_CORRUPT_CQ == numResults)
 		{
-		case IO_SEND:
-			//completionOk = SendCompletion(asCompletionKey, static_cast<OverlappedSendContext*>(context), dwTransferred);
-			break;
-
-		case IO_RECV_ZERO:
-			//completionOk = PreReceiveCompletion(asCompletionKey, static_cast<OverlappedPreRecvContext*>(context), dwTransferred);
-			break;
-
-		case IO_RECV:
-			//completionOk = ReceiveCompletion(asCompletionKey, static_cast<OverlappedRecvContext*>(context), dwTransferred);
-			break;
-
-		default:
-			printf_s("Unknown I/O Type: %d\n", context->mIoType);
+			printf_s("RIO CORRUPT CQ \n");
 			CRASH_ASSERT(false);
-			break;
 		}
 
-		if (!completionOk)
+
+		for (ULONG i = 0; i < numResults; ++i)
 		{
-			/// connection closing
-			asCompletionKey->Disconnect(DR_IO_REQUEST_ERROR);
+			results[i].BytesTransferred;
+			results[i].RequestContext;
+
 		}
 
-		DeleteIoContext(context);
-	}
-
+		
+// 		DWORD dwTransferred = 0;
+// 		OverlappedIOContext* context = nullptr;
+// 		ClientSession* asCompletionKey = nullptr;
+// 
+// 		int ret = GetQueuedCompletionStatus(hComletionPort, &dwTransferred, (PULONG_PTR)&asCompletionKey, (LPOVERLAPPED*)&context, INFINITE);
+// 
+// 		if (ret == 0 || dwTransferred == 0)
+// 		{
+// 			int gle = GetLastError();
+// 
+// 			/// check time out first 
+// 			if (gle == WAIT_TIMEOUT)
+// 				continue;
+// 
+// 			if (ret && context->mIoType == IO_RECV_ZERO)
+// 			{
+// 				; ///< do nothing... 
+// 			}
+// 			else
+// 			{
+// 				CRASH_ASSERT(nullptr != asCompletionKey);
+// 
+// 				/// In most cases in here: ERROR_NETNAME_DELETED(64)
+// 
+// 				asCompletionKey->Disconnect(DR_COMPLETION_ERROR);
+// 
+// 				DeleteIoContext(context);
+// 
+// 				continue;
+// 			}
+// 		}
+// 
+// 
+// 		bool completionOk = false;
+// 		switch (context->mIoType)
+// 		{
+// 		case IO_SEND:
+// 			//completionOk = SendCompletion(asCompletionKey, static_cast<OverlappedSendContext*>(context), dwTransferred);
+// 			break;
+// 
+// 		case IO_RECV_ZERO:
+// 			//completionOk = PreReceiveCompletion(asCompletionKey, static_cast<OverlappedPreRecvContext*>(context), dwTransferred);
+// 			break;
+// 
+// 		case IO_RECV:
+// 			//completionOk = ReceiveCompletion(asCompletionKey, static_cast<OverlappedRecvContext*>(context), dwTransferred);
+// 			break;
+// 
+// 		default:
+// 			printf_s("Unknown I/O Type: %d\n", context->mIoType);
+// 			CRASH_ASSERT(false);
+// 			break;
+// 		}
+// 
+// 		if (!completionOk)
+// 		{
+// 			/// connection closing
+// 			asCompletionKey->Disconnect(DR_IO_REQUEST_ERROR);
+// 		}
+// 
+// 		DeleteIoContext(context);
+ 	}
 	return 0;
 }
 
