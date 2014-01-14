@@ -6,14 +6,6 @@
 #include "SessionManager.h"
 
 
-OverlappedIOContext::OverlappedIOContext(ClientSession* owner, IOType ioType) 
-: mSessionObject(owner), mIoType(ioType)
-{
-	memset(&mOverlapped, 0, sizeof(OVERLAPPED));
-	memset(&mWsaBuf, 0, sizeof(WSABUF));
-	mSessionObject->AddRef();
-}
-
 
 bool ClientSession::OnConnect(SOCKADDR_IN* addr)
 {
@@ -29,20 +21,6 @@ bool ClientSession::OnConnect(SOCKADDR_IN* addr)
 	int opt = 1 ;
 	setsockopt(mSocket, IPPROTO_TCP, TCP_NODELAY, (const char*)&opt, sizeof(int)) ;
 
-	opt = 0;
-	if (SOCKET_ERROR == setsockopt(mSocket, SOL_SOCKET, SO_RCVBUF, (const char*)&opt, sizeof(int)) )
-	{
-		printf_s("[DEBUG] SO_RCVBUF change error: %d\n", GetLastError()) ;
-		return false;
-	}
-	
-// 	HANDLE handle = CreateIoCompletionPort((HANDLE)mSocket, GRioManager->GetComletionPort(), (ULONG_PTR)this, 0);
-// 	if (handle != GRioManager->GetComletionPort())
-// 	{
-// 		printf_s("[DEBUG] CreateIoCompletionPort error: %d\n", GetLastError());
-// 		return false;
-// 	}
-
 	memcpy(&mClientAddr, addr, sizeof(SOCKADDR_IN));
 	mConnected = true ;
 
@@ -50,7 +28,7 @@ bool ClientSession::OnConnect(SOCKADDR_IN* addr)
 
 	GSessionManager->IncreaseConnectionCount();
 
-	return PreRecv() ;
+	return PostRecv() ;
 }
 
 void ClientSession::Disconnect(DisconnectReason dr)
@@ -81,31 +59,7 @@ void ClientSession::Disconnect(DisconnectReason dr)
 	mConnected = false ;
 }
 
-bool ClientSession::PreRecv()
-{
-	if (!IsConnected())
-		return false;
 
-	OverlappedPreRecvContext* recvContext = new OverlappedPreRecvContext(this);
-
-	DWORD recvbytes = 0;
-	DWORD flags = 0;
-	recvContext->mWsaBuf.len = 0;
-	recvContext->mWsaBuf.buf = nullptr;
-
-	/// start async recv
-	if (SOCKET_ERROR == WSARecv(mSocket, &recvContext->mWsaBuf, 1, &recvbytes, &flags, (LPWSAOVERLAPPED)recvContext, NULL))
-	{
-		if (WSAGetLastError() != WSA_IO_PENDING)
-		{
-			DeleteIoContext(recvContext);
-			printf_s("ClientSession::PreRecv Error : %d\n", GetLastError());
-			return false;
-		}
-	}
-
-	return true;
-}
 
 bool ClientSession::PostRecv()
 {
@@ -113,7 +67,7 @@ bool ClientSession::PostRecv()
 
 	if (!IsConnected())
 		return false;
-
+	/*
 	if (0 == mBuffer.GetFreeSpaceSize())
 		return false;
 
@@ -136,7 +90,7 @@ bool ClientSession::PostRecv()
 		}
 			
 	}
-
+	*/
 	return true;
 }
 
@@ -144,7 +98,7 @@ void ClientSession::RecvCompletion(DWORD transferred)
 {
 	FastSpinlockGuard criticalSection(mSessionLock);
 
-	mBuffer.Commit(transferred);
+	//mBuffer.Commit(transferred);
 }
 
 bool ClientSession::PostSend()
@@ -153,7 +107,7 @@ bool ClientSession::PostSend()
 
 	if (!IsConnected())
 		return false;
-
+	/*
 	if ( 0 == mBuffer.GetContiguiousBytes() )
 		return true;
 
@@ -177,7 +131,7 @@ bool ClientSession::PostSend()
 			
 	}
 
-
+*/
 
 	return true;
 }
@@ -186,7 +140,7 @@ void ClientSession::SendCompletion(DWORD transferred)
 {
 	FastSpinlockGuard criticalSection(mSessionLock);
 
-	mBuffer.Remove(transferred);
+	//mBuffer.Remove(transferred);
 }
 
 
@@ -206,33 +160,4 @@ void ClientSession::ReleaseRef()
 	}
 }
 
-
-void DeleteIoContext(OverlappedIOContext* context)
-{
-	if (nullptr == context)
-		return;
-
-	context->mSessionObject->ReleaseRef();
-
-	/// ObjectPool's operate delete dispatch
-	switch (context->mIoType)
-	{
-	case IO_SEND:
-		delete static_cast<OverlappedSendContext*>(context);
-		break;
-
-	case IO_RECV_ZERO:
-		delete static_cast<OverlappedPreRecvContext*>(context);
-		break;
-
-	case IO_RECV:
-		delete static_cast<OverlappedRecvContext*>(context);
-		break;
-
-	default:
-		CRASH_ASSERT(false);
-	}
-
-	
-}
 

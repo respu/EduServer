@@ -44,6 +44,12 @@
     <ClInclude Include="RIOManager.h">
       <Filter>Main</Filter>
     </ClInclude>
+    <ClInclude Include="RioContext.h">
+      <Filter>Main</Filter>
+    </ClInclude>
+    <ClInclude Include="RioBufferManager.h">
+      <Filter>Main</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -68,6 +74,12 @@
       <Filter>Main</Filter>
     </ClCompile>
     <ClCompile Include="RIOManager.cpp">
+      <Filter>Main</Filter>
+    </ClCompile>
+    <ClCompile Include="RioContext.cpp">
+      <Filter>Main</Filter>
+    </ClCompile>
+    <ClCompile Include="RioBufferManager.cpp">
       <Filter>Main</Filter>
     </ClCompile>
   </ItemGroup>
