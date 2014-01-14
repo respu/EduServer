@@ -8,18 +8,13 @@
 
 class SessionManager;
 
-class ClientSession : public ObjectPool<ClientSession>
+class ClientSession
 {
 public:
-	ClientSession(SOCKET sock) 
-		: mSocket(sock), mConnected(false), mRefCount(0)
-	{
-		memset(&mClientAddr, 0, sizeof(SOCKADDR_IN)) ;
-	}
+	ClientSession();
+	~ClientSession();
 
-	~ClientSession() {}
-
-	bool	OnConnect(SOCKADDR_IN* addr);
+	bool	OnConnect(SOCKET socket, SOCKADDR_IN* addr);
 	bool	IsConnected() const { return mConnected; }
 
 
@@ -33,6 +28,13 @@ public:
 	
 	void	AddRef();
 	void	ReleaseRef();
+
+private:
+	bool	RioInitialize();
+
+	char*			mRioBufferPointer;
+	RIO_BUFFERID	mRioBufferId;
+	CircularBuffer* mCircularBuffer;
 
 private:
 	bool			mConnected ;

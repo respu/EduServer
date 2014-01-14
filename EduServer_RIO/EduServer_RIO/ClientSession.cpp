@@ -6,12 +6,55 @@
 #include "SessionManager.h"
 
 
+ClientSession::ClientSession() 
+: mSocket(NULL), mConnected(false), mRefCount(0), mCircularBuffer(nullptr), mRioBufferId(NULL), mRioBufferPointer(nullptr)
+{
+	memset(&mClientAddr, 0, sizeof(SOCKADDR_IN));
+}
 
-bool ClientSession::OnConnect(SOCKADDR_IN* addr)
+ClientSession::~ClientSession()
+{
+	RIOManager::mRioFunctionTable.RIODeregisterBuffer(mRioBufferId);
+	VirtualFreeEx(GetCurrentProcess(), mRioBufferPointer, SESSION_BUFFER_SIZE, MEM_RELEASE);
+	delete mCircularBuffer;
+}
+
+
+bool ClientSession::RioInitialize()
+{
+	SYSTEM_INFO systemInfo;
+	GetSystemInfo(&systemInfo);
+	const unsigned __int64 granularity = systemInfo.dwAllocationGranularity; ///< maybe 64K
+
+	CRASH_ASSERT(SESSION_BUFFER_SIZE % granularity == 0);
+
+	mRioBufferPointer = reinterpret_cast<char*>(VirtualAllocEx(GetCurrentProcess(), 0, SESSION_BUFFER_SIZE, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+	if (mRioBufferPointer == nullptr)
+	{
+		printf_s("VirtualAllocEx Error: %d\n", GetLastError());
+		return false;
+	}
+
+	mCircularBuffer = new CircularBuffer(mRioBufferPointer, SESSION_BUFFER_SIZE);
+
+	mRioBufferId = RIOManager::mRioFunctionTable.RIORegisterBuffer(mRioBufferPointer, SESSION_BUFFER_SIZE);
+
+	if (mRioBufferId == RIO_INVALID_BUFFERID)
+	{
+		printf_s("RIORegisterBuffer Error: %d\n", GetLastError());
+		return false;
+	}
+
+	return true;
+}
+
+bool ClientSession::OnConnect(SOCKET socket, SOCKADDR_IN* addr)
 {
 	FastSpinlockGuard criticalSection(mSessionLock);
 
 	CRASH_ASSERT(LIoThreadId == MAIN_THREAD_ID);
+
+	mSocket = socket;
 
 	/// make socket non-blocking
 	u_long arg = 1 ;
@@ -57,6 +100,7 @@ void ClientSession::Disconnect(DisconnectReason dr)
 	ReleaseRef();
 
 	mConnected = false ;
+	mSocket = NULL;
 }
 
 

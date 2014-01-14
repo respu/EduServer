@@ -10,7 +10,9 @@ class SessionManager
 public:
 	SessionManager() : mCurrentConnectionCount(0)	{}
 
-	ClientSession* CreateClientSession(SOCKET sock);
+	bool PrepareSessionPool(int maxSession);
+
+	ClientSession* CreateClientSession();
 
 	void DeleteClientSession(ClientSession* client);
 

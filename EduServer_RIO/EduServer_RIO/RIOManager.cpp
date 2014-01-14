@@ -94,10 +94,10 @@ bool RIOManager::StartAcceptLoop()
 		getpeername(acceptedSock, (SOCKADDR*)&clientaddr, &addrlen);
 
 		/// new client session (should not be under any session locks)
-		ClientSession* client = GSessionManager->CreateClientSession(acceptedSock);
+		ClientSession* client = GSessionManager->CreateClientSession();
 
 		/// connection establishing and then issuing recv
-		if (false == client->OnConnect(&clientaddr))
+		if (false == client->OnConnect(acceptedSock, &clientaddr))
 		{
 			client->Disconnect(DR_ONCONNECT_ERROR);
 		}
