@@ -25,6 +25,9 @@ int _tmain(int argc, _TCHAR* argv[])
 	if (false == GRioManager->Initialize())
 		return -1;
 
+	if (false == GSessionManager->PrepareSessionPool())
+		return -1;
+
 	if (false == GRioManager->StartIoThreads())
 		return -1;
 
@@ -32,8 +35,6 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	if (false == GRioManager->StartAcceptLoop())
 		return -1;
-
-	GRioManager->Finalize();
 
 	printf_s("End Server\n");
 

@@ -1,38 +1,76 @@
 #include "stdafx.h"
+#include "Exception.h"
 #include "FastSpinlock.h"
+#include "EduServer_RIO.h"
 #include "ClientSession.h"
 #include "SessionManager.h"
 
 SessionManager* GSessionManager = nullptr;
 
-bool SessionManager::PrepareSessionPool(int maxSession)
+SessionManager::~SessionManager()
 {
+	for (auto it : mOccupiedSessionList)
+	{
+		delete it;
+	}
+
+	for (int i = 1; i <= MAX_RIO_THREAD; ++i)
+	{
+		for (auto it : mFreeSessionList[i] )
+		{
+			delete it;
+		}
+	}
+}
+
+bool SessionManager::PrepareSessionPool()
+{
+	CRASH_ASSERT(LIoThreadId == MAIN_THREAD_ID);
+
+	for (int i = 1; i <= MAX_RIO_THREAD; ++i)
+	{
+		for (int j = 0; j < MAX_CLIENT_PER_RIO_THREAD; ++j)
+		{
+			ClientSession* client = new ClientSession(i);
+			if (false == client->RioInitialize())
+				return false;
+
+			mFreeSessionList[i].push_back(client);
+		}
+	}
 
 	return true;
 }
 
-ClientSession* SessionManager::CreateClientSession()
+ClientSession* SessionManager::IssueClientSession()
 {
-	ClientSession* client = new ClientSession(1);
-	client->AddRef();
+	FastSpinlockGuard guard(mLock);
 
-// 	mLock.EnterLock();
-// 	{
-// 		mClientList.insert(ClientList::value_type(sock, client));
-// 	}
-// 	mLock.LeaveLock();
+	uint64_t threadId = (mCurrentIssueCount++ % MAX_RIO_THREAD) + 1;
+	CRASH_ASSERT(threadId > 0);
 
-	return client;
+	ClientSession* newClient = mFreeSessionList[threadId].back();
+	CRASH_ASSERT(newClient != nullptr);
+	mFreeSessionList[threadId].pop_back();
+
+	newClient->AddRef();
+
+	mOccupiedSessionList.push_back(newClient);
+
+	return newClient;
 }
 
 
-void SessionManager::DeleteClientSession(ClientSession* client)
+void SessionManager::ReturnClientSession(ClientSession* client)
 {
-// 	mLock.EnterLock();
-// 	{
-// 		mClientList.erase(client->mSocket);
-// 	}
-// 	mLock.LeaveLock();
+	FastSpinlockGuard guard(mLock);
 
-	delete client;
+	CRASH_ASSERT(client->mSocket == NULL && client->mConnected == false && client->mRefCount == 0);
+
+	uint64_t threadId = (mCurrentReturnCount++ % MAX_RIO_THREAD) + 1;
+	CRASH_ASSERT(threadId > 0);
+
+	mOccupiedSessionList.pop_back();
+
+	mFreeSessionList[threadId].push_back(client);
 }

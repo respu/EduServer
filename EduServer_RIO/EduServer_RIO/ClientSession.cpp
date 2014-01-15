@@ -7,8 +7,8 @@
 
 
 ClientSession::ClientSession(int threadId) 
-: mSocket(NULL), mConnected(false), mRefCount(0), mCircularBuffer(nullptr), mRioBufferId(NULL), mRioBufferPointer(nullptr)
-, mRioThreadId(threadId)
+: mSocket(NULL), mConnected(false), mRefCount(0)
+	,mCircularBuffer(nullptr), mRioBufferId(NULL), mRioBufferPointer(nullptr), mRioThreadId(threadId)
 {
 	memset(&mClientAddr, 0, sizeof(SOCKADDR_IN));
 }
@@ -80,8 +80,6 @@ bool ClientSession::OnConnect(SOCKET socket, SOCKADDR_IN* addr)
 
 	printf_s("[DEBUG] Client Connected: IP=%s, PORT=%d\n", inet_ntoa(mClientAddr.sin_addr), ntohs(mClientAddr.sin_port));
 
-	GSessionManager->IncreaseConnectionCount();
-
 	return PostRecv() ;
 }
 
@@ -104,8 +102,6 @@ void ClientSession::Disconnect(DisconnectReason dr)
 
 	printf_s("[DEBUG] Client Disconnected: Reason=%d IP=%s, PORT=%d \n", dr, inet_ntoa(mClientAddr.sin_addr), ntohs(mClientAddr.sin_port));
 	
-	GSessionManager->DecreaseConnectionCount();
-
 	closesocket(mSocket) ;
 
 	ReleaseRef();
@@ -193,7 +189,7 @@ void ClientSession::ReleaseRef()
 	
 	if (ret == 0)
 	{
-		//TODO GSessionManager->DeleteClientSession(this);
+		GSessionManager->ReturnClientSession(this);
 	}
 }
 

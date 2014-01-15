@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "EduServer_RIO.h"
-#include "RioBufferManager.h"
+#include "RioContext.h"
 #include "RIOManager.h"
 #include "ClientSession.h"
 #include "SessionManager.h"
@@ -18,6 +18,8 @@ RIOManager::RIOManager() : mListenSocket(NULL)
 
 RIOManager::~RIOManager()
 {
+	/// winsock finalizing
+	WSACleanup();
 }
 
 
@@ -95,7 +97,7 @@ bool RIOManager::StartAcceptLoop()
 		getpeername(acceptedSock, (SOCKADDR*)&clientaddr, &addrlen);
 
 		/// new client session (should not be under any session locks)
-		ClientSession* client = GSessionManager->CreateClientSession();
+		ClientSession* client = GSessionManager->IssueClientSession();
 
 		/// connection establishing and then issuing recv
 		if (false == client->OnConnect(acceptedSock, &clientaddr))
@@ -107,12 +109,6 @@ bool RIOManager::StartAcceptLoop()
 	return true;
 }
 
-void RIOManager::Finalize()
-{
-	/// winsock finalizing
-	WSACleanup();
-
-}
 
 unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 {
@@ -121,7 +117,11 @@ unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 
 	mRioCompletionQueue[LIoThreadId] = RIO.RIOCreateCompletionQueue(MAX_CQ_SIZE_PER_RIO_THREAD, 0);
 	if (mRioCompletionQueue[LIoThreadId] == RIO_INVALID_CQ)
+	{
+		CRASH_ASSERT(false);
 		return -1;
+	}
+		
 
 	RIORESULT results[MAX_RIO_RESULT];
 
@@ -150,10 +150,12 @@ unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 		
 			CRASH_ASSERT(context && client);
 
-			bool welldone = true;
+			
 			if (transferred == 0)
 			{
-				welldone = false;
+				client->Disconnect(DR_COMPLETION_ERROR);
+				ReleaseContext(context);
+				continue;
 			}
 			else if (IO_RECV == context->mIoType)
 			{
@@ -161,11 +163,20 @@ unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 
 				/// echo back
 				if (false == client->PostSend())
-					welldone = false;
+				{
+					client->Disconnect(DR_IO_REQUEST_SEND_ERROR);
+					ReleaseContext(context);
+					continue;
+				}
+				
 
-				if (welldone && false == client->PostRecv())
-					welldone = false;
-		
+				if (false == client->PostRecv())
+				{
+					client->Disconnect(DR_IO_REQUEST_RECV_ERROR);
+					ReleaseContext(context);
+					continue;
+				}
+			
 			}
 			else if (IO_SEND == context->mIoType)
 			{
@@ -175,7 +186,10 @@ unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 				if (context->Length != transferred)
 				{
 					printf_s("Partial SendCompletion requested [%d], sent [%d]\n", context->Length, transferred);
-					welldone = false ;
+				
+					client->Disconnect(DR_COMPLETION_ERROR);
+					ReleaseContext(context);
+					continue;
 				}
 			}
 			else
@@ -184,16 +198,7 @@ unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 				CRASH_ASSERT(false);
 			}
 
-			if (!welldone)
-			{
-				client->Disconnect(DR_COMPLETION_ERROR);
-			}
-
-			/// refcount release for i/o context
-			client->ReleaseRef();
-
-			/// context release
-			delete context;
+			ReleaseContext(context);
 		
 		}
 
@@ -203,35 +208,11 @@ unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 	return 0;
 }
 
-/*
-bool RIOManager::PreReceiveCompletion(ClientSession* client, OverlappedPreRecvContext* context, DWORD dwTransferred)
+void RIOManager::ReleaseContext(RioIoContext* context)
 {
-	// real receive...
-	return client->PostRecv();
+	/// refcount release for i/o context
+	context->mClientSession->ReleaseRef();
+
+	/// context release
+	delete context;
 }
-
-bool RIOManager::ReceiveCompletion(ClientSession* client, OverlappedRecvContext* context, DWORD dwTransferred)
-{
-	client->RecvCompletion(dwTransferred);
-
-	/// echo back
-	if (false == client->PostSend())
-		return false;
-
-	// zero receive
-	return client->PreRecv();
-}
-
-bool RIOManager::SendCompletion(ClientSession* client, OverlappedSendContext* context, DWORD dwTransferred)
-{
-	client->SendCompletion(dwTransferred);
-
-	if (context->mWsaBuf.len != dwTransferred)
-	{
-		printf_s("Partial SendCompletion requested [%d], sent [%d]\n", context->mWsaBuf.len, dwTransferred);
-		return false;
-	}
-
-	return true;
-}
-*/

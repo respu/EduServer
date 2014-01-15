@@ -1,5 +1,5 @@
 #pragma once
-#include <map>
+#include <list>
 #include <WinSock2.h>
 #include "FastSpinlock.h"
 
@@ -8,25 +8,27 @@ class ClientSession;
 class SessionManager
 {
 public:
-	SessionManager() : mCurrentConnectionCount(0)	{}
+	SessionManager() : mCurrentIssueCount(0), mCurrentReturnCount(0)
+	{}
+	~SessionManager();
 
-	bool PrepareSessionPool(int maxSession);
+	bool PrepareSessionPool();
 
-	ClientSession* CreateClientSession();
+	ClientSession* IssueClientSession();
 
-	void DeleteClientSession(ClientSession* client);
-
-	int IncreaseConnectionCount() { return InterlockedIncrement(&mCurrentConnectionCount); }
-	int DecreaseConnectionCount() { return InterlockedDecrement(&mCurrentConnectionCount); }
+	void ReturnClientSession(ClientSession* client);
 
 
 private:
-	typedef std::map<SOCKET, ClientSession*> ClientList;
-	ClientList	mClientList;
+	typedef std::list<ClientSession*> ClientList;
+	ClientList	mFreeSessionList[MAX_RIO_THREAD+1];
+	ClientList	mOccupiedSessionList;
 
 	FastSpinlock mLock;
 
-	volatile long mCurrentConnectionCount;
+	uint64_t mCurrentIssueCount;
+	uint64_t mCurrentReturnCount;
+
 };
 
 extern SessionManager* GSessionManager;
