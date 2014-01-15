@@ -11,7 +11,7 @@ class SessionManager;
 class ClientSession
 {
 public:
-	ClientSession();
+	ClientSession(int threadId);
 	~ClientSession();
 
 	bool	OnConnect(SOCKET socket, SOCKADDR_IN* addr);
@@ -36,9 +36,12 @@ private:
 	RIO_BUFFERID	mRioBufferId;
 	CircularBuffer* mCircularBuffer;
 
+	RIO_RQ			mRequestQueue;
+
 private:
 	bool			mConnected ;
 	SOCKET			mSocket ;
+	int				mRioThreadId;
 
 	SOCKADDR_IN		mClientAddr ;
 		

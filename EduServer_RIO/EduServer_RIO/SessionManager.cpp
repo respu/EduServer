@@ -13,7 +13,7 @@ bool SessionManager::PrepareSessionPool(int maxSession)
 
 ClientSession* SessionManager::CreateClientSession()
 {
-	ClientSession* client = new ClientSession();
+	ClientSession* client = new ClientSession(1);
 	client->AddRef();
 
 // 	mLock.EnterLock();

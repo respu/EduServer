@@ -7,6 +7,7 @@
 
 
 RIO_EXTENSION_FUNCTION_TABLE RIOManager::mRioFunctionTable = { 0, };
+RIO_CQ RIOManager::mRioCompletionQueue[MAX_RIO_THREAD+1] = { 0, };
 
 RIOManager* GRioManager = nullptr;
 
@@ -116,13 +117,10 @@ void RIOManager::Finalize()
 unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 {
 	LIoThreadId = reinterpret_cast<int>(lpParam);
-	LRioBufferManager = new RioBufferManager(LIoThreadId);
+	
 
-	if (false == LRioBufferManager->PrepareRioBuffers())
-		return -1;
-
-	RIO_CQ rioCompletionQueue = mRioFunctionTable.RIOCreateCompletionQueue(MAX_CQ_SIZE_PER_RIO_THREAD, 0);
-	if (rioCompletionQueue == RIO_INVALID_CQ)
+	mRioCompletionQueue[LIoThreadId] = RIO.RIOCreateCompletionQueue(MAX_CQ_SIZE_PER_RIO_THREAD, 0);
+	if (mRioCompletionQueue[LIoThreadId] == RIO_INVALID_CQ)
 		return -1;
 
 	RIORESULT results[MAX_RIO_RESULT];
@@ -131,7 +129,7 @@ unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 	{
 		memset(results, 0, sizeof(results));
 		
-		ULONG numResults = mRioFunctionTable.RIODequeueCompletion(rioCompletionQueue, results, MAX_RIO_RESULT);
+		ULONG numResults = RIO.RIODequeueCompletion(mRioCompletionQueue[LIoThreadId], results, MAX_RIO_RESULT);
 		
 		if (0 == numResults)
 		{
@@ -147,9 +145,9 @@ unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 		for (ULONG i = 0; i < numResults; ++i)
 		{
 			RioIoContext* context = reinterpret_cast<RioIoContext*>(results[i].RequestContext);
-			ClientSession* client = context->mSessionObject;
+			ClientSession* client = context->mClientSession;
 			ULONG transferred = results[i].BytesTransferred;
-
+		
 			CRASH_ASSERT(context && client);
 
 			bool welldone = true;
@@ -174,9 +172,9 @@ unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 			
 				client->SendCompletion(transferred);
 
-				if (context->mRioBuf.Length != transferred)
+				if (context->Length != transferred)
 				{
-					printf_s("Partial SendCompletion requested [%d], sent [%d]\n", context->mRioBuf.Length, transferred);
+					printf_s("Partial SendCompletion requested [%d], sent [%d]\n", context->Length, transferred);
 					welldone = false ;
 				}
 			}
@@ -191,12 +189,17 @@ unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 				client->Disconnect(DR_COMPLETION_ERROR);
 			}
 
-			LRioBufferManager->PushRioIoContext(context);
+			/// refcount release for i/o context
+			client->ReleaseRef();
+
+			/// context release
+			delete context;
+		
 		}
 
  	}
 
-	delete LRioBufferManager;
+	
 	return 0;
 }
 

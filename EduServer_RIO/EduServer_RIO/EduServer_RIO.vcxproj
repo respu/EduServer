@@ -150,7 +150,6 @@
     <ClInclude Include="Exception.h" />
     <ClInclude Include="FastSpinlock.h" />
     <ClInclude Include="ObjectPool.h" />
-    <ClInclude Include="RioBufferManager.h" />
     <ClInclude Include="RioContext.h" />
     <ClInclude Include="RIOManager.h" />
     <ClInclude Include="SessionManager.h" />
@@ -163,7 +162,6 @@
     <ClCompile Include="EduServer_RIO.cpp" />
     <ClCompile Include="Exception.cpp" />
     <ClCompile Include="FastSpinlock.cpp" />
-    <ClCompile Include="RioBufferManager.cpp" />
     <ClCompile Include="RioContext.cpp" />
     <ClCompile Include="RIOManager.cpp" />
     <ClCompile Include="SessionManager.cpp" />

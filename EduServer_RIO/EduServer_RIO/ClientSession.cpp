@@ -6,15 +6,16 @@
 #include "SessionManager.h"
 
 
-ClientSession::ClientSession() 
+ClientSession::ClientSession(int threadId) 
 : mSocket(NULL), mConnected(false), mRefCount(0), mCircularBuffer(nullptr), mRioBufferId(NULL), mRioBufferPointer(nullptr)
+, mRioThreadId(threadId)
 {
 	memset(&mClientAddr, 0, sizeof(SOCKADDR_IN));
 }
 
 ClientSession::~ClientSession()
 {
-	RIOManager::mRioFunctionTable.RIODeregisterBuffer(mRioBufferId);
+	RIO.RIODeregisterBuffer(mRioBufferId);
 	VirtualFreeEx(GetCurrentProcess(), mRioBufferPointer, SESSION_BUFFER_SIZE, MEM_RELEASE);
 	delete mCircularBuffer;
 }
@@ -37,7 +38,7 @@ bool ClientSession::RioInitialize()
 
 	mCircularBuffer = new CircularBuffer(mRioBufferPointer, SESSION_BUFFER_SIZE);
 
-	mRioBufferId = RIOManager::mRioFunctionTable.RIORegisterBuffer(mRioBufferPointer, SESSION_BUFFER_SIZE);
+	mRioBufferId = RIO.RIORegisterBuffer(mRioBufferPointer, SESSION_BUFFER_SIZE);
 
 	if (mRioBufferId == RIO_INVALID_BUFFERID)
 	{
@@ -63,6 +64,16 @@ bool ClientSession::OnConnect(SOCKET socket, SOCKADDR_IN* addr)
 	/// turn off nagle
 	int opt = 1 ;
 	setsockopt(mSocket, IPPROTO_TCP, TCP_NODELAY, (const char*)&opt, sizeof(int)) ;
+
+	/// create socket RQ
+	/// SEND and RECV within one CQ (you can do with two CQs, seperately)
+	mRequestQueue = RIO.RIOCreateRequestQueue(mSocket, MAX_RECV_RQ_SIZE_PER_SOCKET, 1, MAX_SEND_RQ_SIZE_PER_SOCKET, 1,
+		GRioManager->GetCompletionQueue(mRioThreadId), GRioManager->GetCompletionQueue(mRioThreadId), NULL);
+	if (mRequestQueue == RIO_INVALID_RQ)
+	{
+		printf_s("RIOCreateRequestQueue Error: %d\n", GetLastError());
+		return false ;
+	}
 
 	memcpy(&mClientAddr, addr, sizeof(SOCKADDR_IN));
 	mConnected = true ;
@@ -107,84 +118,66 @@ void ClientSession::Disconnect(DisconnectReason dr)
 
 bool ClientSession::PostRecv()
 {
-	FastSpinlockGuard criticalSection(mSessionLock);
-
 	if (!IsConnected())
 		return false;
-	/*
-	if (0 == mBuffer.GetFreeSpaceSize())
+
+	if (0 == mCircularBuffer->GetFreeSpaceSize())
 		return false;
 
-	OverlappedRecvContext* recvContext = new OverlappedRecvContext(this);
+	RioIoContext* recvContext = new RioIoContext(this, IO_RECV);
 
+	recvContext->BufferId = mRioBufferId;
+	recvContext->Length = static_cast<ULONG>(mCircularBuffer->GetFreeSpaceSize());
+	recvContext->Offset = mCircularBuffer->GetWritableOffset();
+	
 	DWORD recvbytes = 0;
 	DWORD flags = 0;
-	recvContext->mWsaBuf.len = (ULONG)mBuffer.GetFreeSpaceSize();
-	recvContext->mWsaBuf.buf = mBuffer.GetBuffer();
-	
 
-	/// start real recv
-	if (SOCKET_ERROR == WSARecv(mSocket, &recvContext->mWsaBuf, 1, &recvbytes, &flags, (LPWSAOVERLAPPED)recvContext, NULL))
+	/// start async recv
+	if (!RIO.RIOReceive(mRequestQueue, (PRIO_BUF)recvContext, 1, flags, recvContext))
 	{
-		if (WSAGetLastError() != WSA_IO_PENDING)
-		{
-			DeleteIoContext(recvContext);
-			printf_s("ClientSession::PostRecv Error : %d\n", GetLastError());
-			return false;
-		}
-			
+		printf_s("[DEBUG] RIOReceive error: %d\n", GetLastError());
+		return false;
 	}
-	*/
+
 	return true;
 }
 
 void ClientSession::RecvCompletion(DWORD transferred)
 {
-	FastSpinlockGuard criticalSection(mSessionLock);
-
-	//mBuffer.Commit(transferred);
+	mCircularBuffer->Commit(transferred);
 }
 
 bool ClientSession::PostSend()
 {
-	FastSpinlockGuard criticalSection(mSessionLock);
-
 	if (!IsConnected())
 		return false;
-	/*
-	if ( 0 == mBuffer.GetContiguiousBytes() )
+	
+	if ( 0 == mCircularBuffer->GetContiguiousBytes() )
 		return true;
 
-	OverlappedSendContext* sendContext = new OverlappedSendContext(this);
+	RioIoContext* sendContext = new RioIoContext(this, IO_SEND);
+
+	sendContext->BufferId = mRioBufferId;
+	sendContext->Length = static_cast<ULONG>(mCircularBuffer->GetContiguiousBytes()); 
+	sendContext->Offset = mCircularBuffer->GetReadableOffset();
 
 	DWORD sendbytes = 0;
 	DWORD flags = 0;
-	sendContext->mWsaBuf.len = (ULONG) mBuffer.GetContiguiousBytes(); 
-	sendContext->mWsaBuf.buf = mBuffer.GetBufferStart();
 
 	/// start async send
-	if (SOCKET_ERROR == WSASend(mSocket, &sendContext->mWsaBuf, 1, &sendbytes, flags, (LPWSAOVERLAPPED)sendContext, NULL))
+	if (!RIO.RIOSend(mRequestQueue, (PRIO_BUF)sendContext, 1, flags, sendContext))
 	{
-		if (WSAGetLastError() != WSA_IO_PENDING)
-		{
-			DeleteIoContext(sendContext);
-			printf_s("ClientSession::PostSend Error : %d\n", GetLastError());
-
-			return false;
-		}
-			
+		printf_s("[DEBUG] RIOSend error: %d\n", GetLastError());
+		return false;
 	}
-
-*/
-
+	
 	return true;
 }
 
 void ClientSession::SendCompletion(DWORD transferred)
 {
-	FastSpinlockGuard criticalSection(mSessionLock);
-
-	//mBuffer.Remove(transferred);
+	mCircularBuffer->Remove(transferred);
 }
 
 
@@ -200,7 +193,7 @@ void ClientSession::ReleaseRef()
 	
 	if (ret == 0)
 	{
-		GSessionManager->DeleteClientSession(this);
+		//TODO GSessionManager->DeleteClientSession(this);
 	}
 }
 

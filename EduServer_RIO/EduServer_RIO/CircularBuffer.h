@@ -56,15 +56,21 @@ public:
 	}
 
 	/// 쓰기가 가능한 위치 (버퍼의 끝부분) 반환
-	char* GetBuffer() const
-	{
-		if( mBRegionPointer != nullptr )
-			return mBRegionPointer + mBRegionSize ;
-		else
-			return mARegionPointer + mARegionSize ;
-	}
+// 	char* GetBuffer() const
+// 	{
+// 		if( mBRegionPointer != nullptr )
+// 			return mBRegionPointer + mBRegionSize ;
+// 		else
+// 			return mARegionPointer + mARegionSize ;
+// 	}
 
-	
+	ULONG GetWritableOffset() const
+	{
+		if (mBRegionPointer != nullptr)
+			return static_cast<ULONG>(mBRegionPointer + mBRegionSize - mBuffer);
+		else
+			return static_cast<ULONG>(mARegionPointer + mARegionSize - mBuffer);
+	}
 
 
 	/// 커밋(aka. IncrementWritten)
@@ -77,12 +83,20 @@ public:
 	}
 
 	/// 버퍼의 첫부분 리턴
-	char* GetBufferStart() const
+// 	char* GetBufferStart() const
+// 	{
+// 		if ( mARegionSize > 0 )
+// 			return mARegionPointer ;
+// 		else
+// 			return mBRegionPointer ;
+// 	}
+
+	ULONG GetReadableOffset() const
 	{
-		if ( mARegionSize > 0 )
-			return mARegionPointer ;
+		if (mARegionSize > 0)
+			return static_cast<ULONG>(mARegionPointer-mBuffer);
 		else
-			return mBRegionPointer ;
+			return static_cast<ULONG>(mBRegionPointer-mBuffer);
 	}
 
 
