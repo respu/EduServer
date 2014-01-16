@@ -20,7 +20,7 @@ public:
 
 private:
 	static unsigned int WINAPI IoWorkerThread(LPVOID lpParam);
-	static void ReleaseContext(RioIoContext* context);
+	
 
 private:
 	static RIO_CQ mRioCompletionQueue[MAX_RIO_THREAD + 1];
@@ -29,6 +29,7 @@ private:
 
 };
 
+void ReleaseContext(RioIoContext* context);
 
 extern RIOManager* GRioManager;
 

@@ -177,8 +177,6 @@ bool ClientSession::PostSend()
 			
 	}
 
-
-
 	return true;
 }
 

@@ -143,8 +143,6 @@ unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 			CRASH_ASSERT(false);
 		}
 
-		std::set<ClientSession*> receivedSessions;
-
 		for (ULONG i = 0; i < numResults; ++i)
 		{
 			RioIoContext* context = reinterpret_cast<RioIoContext*>(results[i].RequestContext);
@@ -164,12 +162,15 @@ unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 			{
 				client->RecvCompletion(transferred);
 
-				receivedSessions.insert(client);
-
+				/// echo back
+				if (false == client->PostSend())
+				{
+					client->Disconnect(DR_IO_REQUEST_SEND_ERROR);
+				}
+		
 			}
 			else if (IO_SEND == context->mIoType)
 			{
-			
 				client->SendCompletion(transferred);
 
 				if (context->Length != transferred)
@@ -177,8 +178,10 @@ unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 					printf_s("Partial SendCompletion requested [%d], sent [%d]\n", context->Length, transferred);
 				
 					client->Disconnect(DR_COMPLETION_ERROR);
-					ReleaseContext(context);
-					continue;
+				}
+				else if (false == client->PostRecv())
+				{
+					client->Disconnect(DR_IO_REQUEST_RECV_ERROR);
 				}
 			}
 			else
@@ -191,30 +194,14 @@ unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 		
 		} /// for
 
-		//TODO: posting async ops 
-		for (auto clientSession : receivedSessions)
-		{
-			/// echo back
-			if (false == clientSession->PostSend())
-			{
-				clientSession->Disconnect(DR_IO_REQUEST_SEND_ERROR);
-				continue;
-			}
-
-			if (false == clientSession->PostRecv())
-			{
-				clientSession->Disconnect(DR_IO_REQUEST_RECV_ERROR);
-				continue;
-			}
-		}
-
+	
  	} /// while
 
 	
 	return 0;
 }
 
-void RIOManager::ReleaseContext(RioIoContext* context)
+void ReleaseContext(RioIoContext* context)
 {
 	/// refcount release for i/o context
 	context->mClientSession->ReleaseRef();

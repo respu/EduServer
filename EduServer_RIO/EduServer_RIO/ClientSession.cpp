@@ -11,8 +11,6 @@ ClientSession::ClientSession(int threadId)
 	,mCircularBuffer(nullptr), mRioBufferId(NULL), mRioBufferPointer(nullptr), mRioThreadId(threadId)
 {
 	memset(&mClientAddr, 0, sizeof(SOCKADDR_IN));
-
-	debugSent = debugRecv = 0;
 }
 
 ClientSession::~ClientSession()
@@ -82,9 +80,6 @@ bool ClientSession::OnConnect(SOCKET socket, SOCKADDR_IN* addr)
 
 	printf_s("[DEBUG] Client Connected: IP=%s, PORT=%d\n", inet_ntoa(mClientAddr.sin_addr), ntohs(mClientAddr.sin_port));
 
-
-	debugSent = debugRecv = 0;
-
 	return PostRecv() ;
 }
 
@@ -109,10 +104,10 @@ void ClientSession::Disconnect(DisconnectReason dr)
 	
 	closesocket(mSocket) ;
 
-	ReleaseRef();
-
 	mConnected = false ;
 	mSocket = NULL;
+
+	ReleaseRef();
 }
 
 
@@ -138,6 +133,7 @@ bool ClientSession::PostRecv()
 	if (!RIO.RIOReceive(mRequestQueue, (PRIO_BUF)recvContext, 1, flags, recvContext))
 	{
 		printf_s("[DEBUG] RIOReceive error: %d\n", GetLastError());
+		ReleaseContext(recvContext);
 		return false;
 	}
 
@@ -147,8 +143,6 @@ bool ClientSession::PostRecv()
 void ClientSession::RecvCompletion(DWORD transferred)
 {
 	mCircularBuffer->Commit(transferred);
-
-	debugRecv += transferred;
 }
 
 bool ClientSession::PostSend()
@@ -172,6 +166,7 @@ bool ClientSession::PostSend()
 	if (!RIO.RIOSend(mRequestQueue, (PRIO_BUF)sendContext, 1, flags, sendContext))
 	{
 		printf_s("[DEBUG] RIOSend error: %d\n", GetLastError());
+		ReleaseContext(sendContext);
 		return false;
 	}
 	
@@ -181,8 +176,6 @@ bool ClientSession::PostSend()
 void ClientSession::SendCompletion(DWORD transferred)
 {
 	mCircularBuffer->Remove(transferred);
-
-	debugSent += transferred;
 }
 
 
