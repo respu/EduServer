@@ -67,13 +67,6 @@ bool ClientSession::OnConnect(SOCKET socket, SOCKADDR_IN* addr)
 	int opt = 1 ;
 	setsockopt(mSocket, IPPROTO_TCP, TCP_NODELAY, (const char*)&opt, sizeof(int)) ;
 
-// 	opt = 0;
-// 	if (SOCKET_ERROR == setsockopt(mSocket, SOL_SOCKET, SO_SNDBUF, (const char*)&opt, sizeof(int)))
-// 	{
-// 		printf_s("[DEBUG] SO_SNDBUF change error: %d\n", GetLastError());
-// 		return false;
-// 	}
-
 	/// create socket RQ
 	/// SEND and RECV within one CQ (you can do with two CQs, seperately)
 	mRequestQueue = RIO.RIOCreateRequestQueue(mSocket, MAX_RECV_RQ_SIZE_PER_SOCKET, 1, MAX_SEND_RQ_SIZE_PER_SOCKET, 1,

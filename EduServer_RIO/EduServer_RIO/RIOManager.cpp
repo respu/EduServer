@@ -135,6 +135,7 @@ unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 		{
 			Sleep(1);
 			//YieldProcessor();
+			continue;
 		}
 		else if (RIO_CORRUPT_CQ == numResults)
 		{
@@ -142,6 +143,7 @@ unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 			CRASH_ASSERT(false);
 		}
 
+		std::set<ClientSession*> receivedSessions;
 
 		for (ULONG i = 0; i < numResults; ++i)
 		{
@@ -162,22 +164,8 @@ unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 			{
 				client->RecvCompletion(transferred);
 
-				/// echo back
-				if (false == client->PostSend())
-				{
-					client->Disconnect(DR_IO_REQUEST_SEND_ERROR);
-					ReleaseContext(context);
-					continue;
-				}
-				
+				receivedSessions.insert(client);
 
-				if (false == client->PostRecv())
-				{
-					client->Disconnect(DR_IO_REQUEST_RECV_ERROR);
-					ReleaseContext(context);
-					continue;
-				}
-			
 			}
 			else if (IO_SEND == context->mIoType)
 			{
@@ -201,9 +189,26 @@ unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 
 			ReleaseContext(context);
 		
+		} /// for
+
+		//TODO: posting async ops 
+		for (auto clientSession : receivedSessions)
+		{
+			/// echo back
+			if (false == clientSession->PostSend())
+			{
+				clientSession->Disconnect(DR_IO_REQUEST_SEND_ERROR);
+				continue;
+			}
+
+			if (false == clientSession->PostRecv())
+			{
+				clientSession->Disconnect(DR_IO_REQUEST_RECV_ERROR);
+				continue;
+			}
 		}
 
- 	}
+ 	} /// while
 
 	
 	return 0;
