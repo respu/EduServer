@@ -31,7 +31,7 @@ bool RIOManager::Initialize()
 		return false;
 
 	/// create TCP socket
-	mListenSocket = socket(AF_INET, SOCK_STREAM, 0);
+	mListenSocket = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_REGISTERED_IO);;
 	if (mListenSocket == INVALID_SOCKET)
 		return false;
 
@@ -134,6 +134,7 @@ unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 		if (0 == numResults)
 		{
 			Sleep(1);
+			//YieldProcessor();
 		}
 		else if (RIO_CORRUPT_CQ == numResults)
 		{

@@ -48,6 +48,10 @@ private:
 	volatile long	mRefCount;
 
 	friend class SessionManager;
+
+
+	int debugSent;
+	int debugRecv;
 } ;
 
 
