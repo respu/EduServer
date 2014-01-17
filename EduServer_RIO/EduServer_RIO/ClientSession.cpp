@@ -32,7 +32,7 @@ bool ClientSession::RioInitialize()
 	mRioBufferPointer = reinterpret_cast<char*>(VirtualAllocEx(GetCurrentProcess(), 0, SESSION_BUFFER_SIZE, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
 	if (mRioBufferPointer == nullptr)
 	{
-		printf_s("VirtualAllocEx Error: %d\n", GetLastError());
+		printf_s("[DEBUG] VirtualAllocEx Error: %d\n", GetLastError());
 		return false;
 	}
 
@@ -42,7 +42,7 @@ bool ClientSession::RioInitialize()
 
 	if (mRioBufferId == RIO_INVALID_BUFFERID)
 	{
-		printf_s("RIORegisterBuffer Error: %d\n", GetLastError());
+		printf_s("[DEBUG] RIORegisterBuffer Error: %d\n", GetLastError());
 		return false;
 	}
 
@@ -71,7 +71,7 @@ bool ClientSession::OnConnect(SOCKET socket, SOCKADDR_IN* addr)
 		GRioManager->GetCompletionQueue(mRioThreadId), GRioManager->GetCompletionQueue(mRioThreadId), NULL);
 	if (mRequestQueue == RIO_INVALID_RQ)
 	{
-		printf_s("RIOCreateRequestQueue Error: %d\n", GetLastError());
+		printf_s("[DEBUG] RIOCreateRequestQueue Error: %d\n", GetLastError());
 		return false ;
 	}
 

@@ -30,8 +30,8 @@ bool RIOManager::Initialize()
 	if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
 		return false;
 
-	/// create TCP socket
-	mListenSocket = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_REGISTERED_IO);;
+	/// create TCP socket with RIO mode
+	mListenSocket = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_REGISTERED_IO);
 	if (mListenSocket == INVALID_SOCKET)
 		return false;
 
@@ -48,13 +48,12 @@ bool RIOManager::Initialize()
 	if (SOCKET_ERROR == bind(mListenSocket, (SOCKADDR*)&serveraddr, sizeof(serveraddr)))
 		return false;
 
-	/// RIO 함수 테이블 가져오기
+	/// RIO function table
 	GUID functionTableId = WSAID_MULTIPLE_RIO;
 	DWORD dwBytes = 0;
 
 	if ( WSAIoctl(mListenSocket, SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER, &functionTableId, sizeof(GUID), (void**)&mRioFunctionTable, sizeof(mRioFunctionTable), &dwBytes, NULL, NULL) )
 		return false;
-	
 
 	return true;
 }
@@ -88,7 +87,7 @@ bool RIOManager::StartAcceptLoop()
 		SOCKET acceptedSock = accept(mListenSocket, NULL, NULL);
 		if (acceptedSock == INVALID_SOCKET)
 		{
-			printf_s("accept: invalid socket\n");
+			printf_s("[DEBUG] accept: invalid socket\n");
 			continue;
 		}
 
@@ -133,13 +132,12 @@ unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 		
 		if (0 == numResults)
 		{
-			Sleep(1);
-			//YieldProcessor();
+			Sleep(1); ///< for low cpu-usage
 			continue;
 		}
 		else if (RIO_CORRUPT_CQ == numResults)
 		{
-			printf_s("RIO CORRUPT CQ \n");
+			printf_s("[DEBUG] RIO CORRUPT CQ \n");
 			CRASH_ASSERT(false);
 		}
 
@@ -186,7 +184,7 @@ unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 			}
 			else
 			{
-				printf_s("Unknown I/O Type: %d\n", context->mIoType);
+				printf_s("[DEBUG] Unknown I/O Type: %d\n", context->mIoType);
 				CRASH_ASSERT(false);
 			}
 

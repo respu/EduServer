@@ -22,7 +22,6 @@ public:
 	}
 
 
-	/// 버퍼의 첫부분 len만큼 날리기
 	void Remove(size_t len) ;
 
 	size_t GetFreeSpaceSize()
@@ -31,7 +30,6 @@ public:
 			return GetBFreeSpace() ;
 		else
 		{
-			/// A 버퍼보다 더 많이 존재하면, B 버퍼로 스위치
 			if ( GetAFreeSpace() < GetSpaceBeforeA() )
 			{
 				AllocateB() ;
@@ -55,15 +53,6 @@ public:
 			return mBRegionSize ;
 	}
 
-	/// 쓰기가 가능한 위치 (버퍼의 끝부분) 반환
-// 	char* GetBuffer() const
-// 	{
-// 		if( mBRegionPointer != nullptr )
-// 			return mBRegionPointer + mBRegionSize ;
-// 		else
-// 			return mARegionPointer + mARegionSize ;
-// 	}
-
 	ULONG GetWritableOffset() const
 	{
 		if (mBRegionPointer != nullptr)
@@ -73,7 +62,6 @@ public:
 	}
 
 
-	/// 커밋(aka. IncrementWritten)
 	void Commit(size_t len)
 	{
 		if ( mBRegionPointer != nullptr )
@@ -82,14 +70,6 @@ public:
 			mARegionSize += len ;
 	}
 
-	/// 버퍼의 첫부분 리턴
-// 	char* GetBufferStart() const
-// 	{
-// 		if ( mARegionSize > 0 )
-// 			return mARegionPointer ;
-// 		else
-// 			return mBRegionPointer ;
-// 	}
 
 	ULONG GetReadableOffset() const
 	{

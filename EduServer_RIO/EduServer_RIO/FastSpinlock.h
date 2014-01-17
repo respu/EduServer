@@ -53,8 +53,7 @@ public:
 
 private:
 	static FastSpinlock mLock;
-	
-	//friend struct LockGuard;
+
 };
 
 template <class TargetClass>
