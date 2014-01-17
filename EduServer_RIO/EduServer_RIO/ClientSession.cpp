@@ -8,7 +8,7 @@
 
 ClientSession::ClientSession(int threadId) 
 : mSocket(NULL), mConnected(false), mRefCount(0)
-	,mCircularBuffer(nullptr), mRioBufferId(NULL), mRioBufferPointer(nullptr), mRioThreadId(threadId)
+	, mCircularBuffer(nullptr), mRioBufferId(NULL), mRioBufferPointer(nullptr), mRioThreadId(threadId)
 {
 	memset(&mClientAddr, 0, sizeof(SOCKADDR_IN));
 }
@@ -16,7 +16,7 @@ ClientSession::ClientSession(int threadId)
 ClientSession::~ClientSession()
 {
 	RIO.RIODeregisterBuffer(mRioBufferId);
-	VirtualFreeEx(GetCurrentProcess(), mRioBufferPointer, SESSION_BUFFER_SIZE, MEM_RELEASE);
+	VirtualFreeEx(GetCurrentProcess(), mRioBufferPointer, 0, MEM_RELEASE);
 	delete mCircularBuffer;
 }
 
