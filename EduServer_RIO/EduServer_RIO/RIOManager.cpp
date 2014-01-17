@@ -154,7 +154,9 @@ unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 			
 			if (transferred == 0)
 			{
-				client->Disconnect(DR_COMPLETION_ERROR);
+				CRASH_ASSERT(client->GetRioThreadId() == LIoThreadId);
+
+				client->Disconnect(DR_ZERO_COMPLETION);
 				ReleaseContext(context);
 				continue;
 			}
@@ -175,9 +177,7 @@ unsigned int WINAPI RIOManager::IoWorkerThread(LPVOID lpParam)
 
 				if (context->Length != transferred)
 				{
-					printf_s("Partial SendCompletion requested [%d], sent [%d]\n", context->Length, transferred);
-				
-					client->Disconnect(DR_COMPLETION_ERROR);
+					client->Disconnect(DR_PARTIAL_SEND_COMPLETION);
 				}
 				else if (false == client->PostRecv())
 				{

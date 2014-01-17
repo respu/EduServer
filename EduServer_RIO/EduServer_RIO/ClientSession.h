@@ -13,6 +13,7 @@ public:
 
 	bool	OnConnect(SOCKET socket, SOCKADDR_IN* addr);
 	bool	IsConnected() const { return mConnected; }
+	int		GetRioThreadId() const { return mRioThreadId; }
 
 
 	bool	PostRecv();
@@ -26,6 +27,8 @@ public:
 	void	AddRef();
 	void	ReleaseRef();
 
+	
+
 private:
 	bool	RioInitialize();
 
@@ -37,13 +40,12 @@ private:
 
 private:
 	bool			mConnected ;
-	SOCKET			mSocket ;
 	int				mRioThreadId;
 
+	SOCKET			mSocket ;
 	SOCKADDR_IN		mClientAddr ;
 		
 	FastSpinlock	mSessionLock;
-
 
 	volatile long	mRefCount;
 
